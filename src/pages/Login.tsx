@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -32,7 +31,7 @@ const Login = () => {
     }
 
     try {
-      await login(email, password);
+      await login(email, password); // Fixed: removed agentId parameter as it's now retrieved from profiles table
       navigate("/");
     } catch (error) {
       // Error toast is displayed by the context

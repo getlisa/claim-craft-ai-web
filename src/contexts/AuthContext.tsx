@@ -7,7 +7,7 @@ import { toast } from "sonner";
 interface AuthContextType {
   isAuthenticated: boolean;
   agentId: string;
-  login: (email: string, password: string, agentId: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, password: string, agentId: string) => Promise<void>;
   userEmail: string | null;
