@@ -114,15 +114,16 @@ const AnalysisTab = () => {
           </CardHeader>
           <CardContent className="pt-2">
             <ChartContainer config={chartConfig} className="aspect-[4/3]">
-              <BarChart data={data.callTimeDistribution}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="hour" />
-                <YAxis />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Bar dataKey="calls" fill="var(--color-primary)" name="Number of Calls" />
-              </BarChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <BarChart data={data.callTimeDistribution}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="hour" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar dataKey="calls" fill="var(--color-primary)" name="Number of Calls" />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -134,20 +135,21 @@ const AnalysisTab = () => {
           </CardHeader>
           <CardContent className="pt-2">
             <ChartContainer config={chartConfig} className="aspect-[4/3]">
-              <LineChart data={data.callDurationByDay}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="avgDuration" 
-                  stroke="var(--color-primary)" 
-                  name="Avg Duration (s)" 
-                />
-              </LineChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <LineChart data={data.callDurationByDay}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Line 
+                    type="monotone" 
+                    dataKey="avgDuration" 
+                    stroke="var(--color-primary)" 
+                    name="Avg Duration (s)" 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -159,15 +161,16 @@ const AnalysisTab = () => {
           </CardHeader>
           <CardContent className="pt-2">
             <ChartContainer config={chartConfig} className="aspect-[4/3]">
-              <BarChart data={data.callsByCategory}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="category" />
-                <YAxis />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Bar dataKey="count" fill="var(--color-secondary)" name="Number of Calls" />
-              </BarChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <BarChart data={data.callsByCategory}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="category" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar dataKey="count" fill="var(--color-secondary)" name="Number of Calls" />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -179,15 +182,16 @@ const AnalysisTab = () => {
           </CardHeader>
           <CardContent className="pt-2">
             <ChartContainer config={chartConfig} className="aspect-[4/3]">
-              <BarChart data={data.callsByIntent}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="intent" />
-                <YAxis />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Legend />
-                <Bar dataKey="count" fill="var(--color-tertiary)" name="Number of Calls" />
-              </BarChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <BarChart data={data.callsByIntent}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="intent" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Legend />
+                  <Bar dataKey="count" fill="var(--color-tertiary)" name="Number of Calls" />
+                </BarChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>

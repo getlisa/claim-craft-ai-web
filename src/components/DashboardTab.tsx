@@ -163,22 +163,23 @@ const DashboardTab = () => {
           </CardHeader>
           <CardContent>
             <ChartContainer config={chartConfig} className="h-[250px]">
-              <LineChart data={dashboardData.recentActivity}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="day" />
-                <YAxis />
-                <Tooltip content={<ChartTooltipContent />} />
-                <Line 
-                  type="monotone" 
-                  dataKey="calls" 
-                  stroke="var(--color-primary)" 
-                  strokeWidth={2} 
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }} 
-                  name="Calls" 
-                />
-              </LineChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <LineChart data={dashboardData.recentActivity}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="day" />
+                  <YAxis />
+                  <Tooltip content={<ChartTooltipContent />} />
+                  <Line 
+                    type="monotone" 
+                    dataKey="calls" 
+                    stroke="var(--color-primary)" 
+                    strokeWidth={2} 
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }} 
+                    name="Calls" 
+                  />
+                </LineChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
@@ -190,25 +191,26 @@ const DashboardTab = () => {
           </CardHeader>
           <CardContent className="flex justify-center">
             <ChartContainer config={chartConfig} className="h-[250px]">
-              <PieChart>
-                <Pie
-                  data={dashboardData.callDistribution}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="value"
-                  nameKey="name"
-                  label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                >
-                  {dashboardData.callDistribution.map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<ChartTooltipContent />} />
-              </PieChart>
-              <ChartTooltip />
+              <ResponsiveContainer>
+                <PieChart>
+                  <Pie
+                    data={dashboardData.callDistribution}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                    nameKey="name"
+                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {dashboardData.callDistribution.map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip content={<ChartTooltipContent />} />
+                </PieChart>
+              </ResponsiveContainer>
             </ChartContainer>
           </CardContent>
         </Card>
