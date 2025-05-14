@@ -36,15 +36,21 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
       return false;
     }
     
-    // Extract user sentiment and call success status from call_analysis if available
-    const callData: any = {
-      ...call,
+    // Create a clean call data object with only the fields that exist in our database schema
+    const callData = {
+      call_id: call.call_id,
+      call_status: call.call_status,
+      start_timestamp: call.start_timestamp,
+      end_timestamp: call.end_timestamp,
+      agent_id: call.agent_id,
+      transcript: call.transcript,
       user_sentiment: call.call_analysis?.user_sentiment || call.user_sentiment,
-      call_successful: call.call_analysis?.call_successful || call.call_successful
+      call_successful: call.call_analysis?.call_successful || call.call_successful,
+      appointment_status: call.appointment_status,
+      appointment_date: call.appointment_date,
+      appointment_time: call.appointment_time,
+      notes: call.notes
     };
-    
-    // Remove call_analysis as it's not in our database schema
-    delete callData.call_analysis;
     
     if (existingCall) {
       // Update existing call
