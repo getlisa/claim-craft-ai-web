@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -139,7 +138,7 @@ const DashboardTab = ({
       // Fetch calls directly from API
       const apiCalls = await fetchCallsFromApi(agentId);
       
-      // Then fetch edited calls from Supabase
+      // Then fetch ALL calls from Supabase - not just ones with edits
       const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
@@ -151,11 +150,8 @@ const DashboardTab = ({
       const editedCallsMap = new Map();
       if (dbCalls && dbCalls.length > 0) {
         dbCalls.forEach(dbCall => {
-          // Only add to map if it has user edits
-          if (dbCall.appointment_status || dbCall.appointment_date || 
-              dbCall.appointment_time || dbCall.notes) {
-            editedCallsMap.set(dbCall.call_id, dbCall);
-          }
+          // Include ALL calls from database, not just ones with specific edits
+          editedCallsMap.set(dbCall.call_id, dbCall);
         });
       }
       
@@ -163,13 +159,13 @@ const DashboardTab = ({
       const mergedCalls = apiCalls.map(apiCall => {
         const editedCall = editedCallsMap.get(apiCall.call_id);
         if (editedCall) {
-          // Keep API data but override with edited fields
+          // Keep API data but override with ALL fields from database
           return {
             ...apiCall,
-            appointment_status: editedCall.appointment_status,
-            appointment_date: editedCall.appointment_date,
-            appointment_time: editedCall.appointment_time,
-            notes: editedCall.notes,
+            appointment_status: editedCall.appointment_status || apiCall.appointment_status,
+            appointment_date: editedCall.appointment_date || apiCall.appointment_date,
+            appointment_time: editedCall.appointment_time || apiCall.appointment_time,
+            notes: editedCall.notes || apiCall.notes,
             id: editedCall.id
           };
         }
@@ -379,7 +375,7 @@ const DashboardTab = ({
       
       <div className="flex justify-center">
         <Button 
-          onClick={() => fetchDashboardData()}
+          onClick={() => refreshCalls ? refreshCalls() : fetchDashboardData()}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-full shadow-lg transition-all flex items-center gap-2"
           disabled={isLoading}
         >

@@ -89,7 +89,7 @@ const CallLogsTab = ({
       // First, fetch calls directly from API
       const apiCalls = await fetchCallsFromApi(agentId);
       
-      // Then fetch edited calls from Supabase
+      // Then fetch ALL calls from Supabase - not just ones with edits
       const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
@@ -101,11 +101,8 @@ const CallLogsTab = ({
       const editedCallsMap = new Map();
       if (dbCalls && dbCalls.length > 0) {
         dbCalls.forEach(dbCall => {
-          // Only add to map if it has user edits
-          if (dbCall.appointment_status || dbCall.appointment_date || 
-              dbCall.appointment_time || dbCall.notes) {
-            editedCallsMap.set(dbCall.call_id, dbCall);
-          }
+          // Include ALL calls from database
+          editedCallsMap.set(dbCall.call_id, dbCall);
         });
       }
       
@@ -113,13 +110,13 @@ const CallLogsTab = ({
       const mergedCalls = apiCalls.map(apiCall => {
         const editedCall = editedCallsMap.get(apiCall.call_id);
         if (editedCall) {
-          // Keep API data but override with edited fields
+          // Keep API data but override with ALL fields from database
           return {
             ...apiCall,
-            appointment_status: editedCall.appointment_status,
-            appointment_date: editedCall.appointment_date,
-            appointment_time: editedCall.appointment_time,
-            notes: editedCall.notes,
+            appointment_status: editedCall.appointment_status || apiCall.appointment_status,
+            appointment_date: editedCall.appointment_date || apiCall.appointment_date,
+            appointment_time: editedCall.appointment_time || apiCall.appointment_time,
+            notes: editedCall.notes || apiCall.notes,
             // Store the database ID for future updates
             id: editedCall.id
           };
@@ -295,7 +292,7 @@ const CallLogsTab = ({
         
         // If we have a refresh function from parent, call it to update all data
         if (refreshCalls) {
-          refreshCalls();
+          await refreshCalls();
         }
         
         setEditDialogOpen(false);
