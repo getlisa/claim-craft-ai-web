@@ -7,7 +7,12 @@ interface AuthContextType {
   agentId: string;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, newAgentId: string) => Promise<boolean>;
+  register: (email: string, password: string, newAgentId: string) => Promise<{
+    success: boolean;
+    rateLimited: boolean;
+    retryAfter?: number;
+    error?: string;
+  }>;
   verifyOTP: (email: string, token: string) => Promise<boolean>;
   resendOTP: (email: string) => Promise<boolean>;
   userEmail: string | null;
@@ -19,7 +24,7 @@ const AuthContext = createContext<AuthContextType>({
   agentId: "",
   login: async () => {},
   logout: async () => {},
-  register: async () => false,
+  register: async () => ({ success: false, rateLimited: false }),
   verifyOTP: async () => false,
   resendOTP: async () => false,
   userEmail: null,
@@ -95,7 +100,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const register = async (email: string, password: string, newAgentId: string): Promise<boolean> => {
+  const register = async (email: string, password: string, newAgentId: string): Promise<{
+    success: boolean;
+    rateLimited: boolean;
+    retryAfter?: number;
+    error?: string;
+  }> => {
     try {
       // Register the user with email confirmation required
       const { data, error } = await supabase.auth.signUp({
@@ -104,12 +114,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       if (error) {
-        if (error.message.includes("rate limit")) {
-          toast.error("Too many registration attempts. Please try again later.");
+        // Check for rate limiting errors
+        if (error.message.toLowerCase().includes("rate limit")) {
+          // Try to parse retry time from error message if available
+          const retryTimeMatch = error.message.match(/try again in (\d+)s/i);
+          const retryAfter = retryTimeMatch ? parseInt(retryTimeMatch[1], 10) : 60;
+          
+          toast.error(`Too many registration attempts. Please try again later.`);
+          return { 
+            success: false, 
+            rateLimited: true,
+            retryAfter, 
+            error: error.message 
+          };
         } else {
           toast.error(error.message || "Registration failed");
+          return { 
+            success: false, 
+            rateLimited: false, 
+            error: error.message 
+          };
         }
-        return false;
       }
       
       if (data.user) {
@@ -126,20 +151,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
         if (profileError) {
           toast.error(profileError.message || "Failed to create user profile");
-          return false;
+          return { 
+            success: false, 
+            rateLimited: false,
+            error: profileError.message 
+          };
         }
         
         // Set temporary email for verification process
         setUserEmail(email);
         
         toast.success("Registration successful! Please check your email for verification code.");
-        return true;
+        return { success: true, rateLimited: false };
       }
-      return false;
+      return { success: false, rateLimited: false, error: "Unknown registration error" };
     } catch (error: any) {
       const errorMsg = error.message || "Registration failed";
       toast.error(errorMsg);
-      return false;
+      return { 
+        success: false, 
+        rateLimited: errorMsg.toLowerCase().includes("rate limit"), 
+        error: errorMsg 
+      };
     }
   };
 
