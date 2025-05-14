@@ -95,22 +95,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string) => {
     try {
-      // First create the user without email confirmation requirement
+      // First register the user
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          data: { 
+            email_confirmed: true 
+          }
+        }
       });
       
       if (error) throw error;
       
       if (data.user) {
-        // Manually update user to set them as confirmed
-        const { error: updateError } = await supabase.auth.updateUser({
-          data: { email_confirmed: true }
-        });
-        
-        if (updateError) throw updateError;
-        
         // Create a profile record with the agent ID
         const { error: profileError } = await supabase
           .from('user_profiles')
@@ -124,10 +122,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
         if (profileError) throw profileError;
         
-        // Automatically sign in after registration
-        await login(email, password);
+        // Sign in explicitly after successful registration
+        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
         
-        toast.success("Registration successful! You're now logged in.");
+        if (signInError) throw signInError;
+        
+        // Update context state
+        if (signInData.user) {
+          setIsAuthenticated(true);
+          setUserEmail(email);
+          setAgentId(newAgentId);
+          toast.success("Registration successful! You're now logged in.");
+        }
       }
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
