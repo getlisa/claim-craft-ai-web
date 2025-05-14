@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -14,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
+import Header from "@/components/Header";
 
 const Landing = () => {
   const [scrolled, setScrolled] = useState(false);
@@ -48,34 +50,11 @@ const Landing = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0118] to-[#120c25] text-white font-inter overflow-x-hidden">
-      {/* Navigation Bar - Floating, Minimal, Always Present */}
-      <nav className={`fixed w-full z-50 transition-all duration-300 ${
-        scrolled 
-          ? "bg-black/20 backdrop-blur-xl border-b border-purple-500/10 py-3" 
-          : "bg-transparent py-5"
-      }`}>
-        <div className="container mx-auto flex justify-between items-center px-4 md:px-6">
-          <div className="flex items-center">
-            <span className="text-2xl font-semibold bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-purple-600">
-              Lisa AI
-            </span>
-          </div>
-          <div className="hidden md:flex items-center space-x-8">
-            <NavItem>Products</NavItem>
-            <NavItem>Solutions</NavItem>
-            <NavItem>Industries</NavItem>
-            <NavItem>Resources</NavItem>
-            <NavItem>About</NavItem>
-          </div>
-          <Button className="rounded-full bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white px-6 animate-pulse duration-[3000ms]">
-            <span>Book a Demo</span>
-            <ArrowRight className="h-4 w-4 ml-2" />
-          </Button>
-        </div>
-      </nav>
+      {/* Use the Header component */}
+      <Header />
 
       {/* Hero Section */}
-      <section className="h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden">
+      <section className="h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden pt-16">
         <div className="absolute inset-0 w-full h-full">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-black/40 to-black/80"></div>
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIiBvcGFjaXR5PSIwLjEiLz48L3N2Zz4=')]"></div>
@@ -96,15 +75,19 @@ const Landing = () => {
             </p>
           </div>
           <div className="flex flex-col md:flex-row gap-4 justify-center">
-            <Button className="rounded-full bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg group transition-all duration-300">
-              <span>Explore Lisa's Brain</span>
-              <div className="ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                <ArrowRight className="h-5 w-5" />
-              </div>
+            <Button asChild className="rounded-full bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg group transition-all duration-300">
+              <Link to="/voice/login">
+                <span>Explore Lisa's Brain</span>
+                <div className="ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+                  <ArrowRight className="h-5 w-5" />
+                </div>
+              </Link>
             </Button>
-            <Button className="rounded-full bg-transparent border border-purple-400 text-white hover:bg-purple-900/30 px-8 py-6 text-lg group transition-all duration-300">
-              <span>Book a Demo</span>
-              <ArrowRight className="h-5 w-5 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+            <Button asChild className="rounded-full bg-transparent border border-purple-400 text-white hover:bg-purple-900/30 px-8 py-6 text-lg group transition-all duration-300">
+              <Link to="/voice/login">
+                <span>Log In</span>
+                <ArrowRight className="h-5 w-5 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+              </Link>
             </Button>
           </div>
         </div>
@@ -228,10 +211,12 @@ const Landing = () => {
                     <h3 className="text-xl font-semibold text-white">{item.title}</h3>
                   </div>
                   <p className="text-purple-100/70 mb-6">{item.description}</p>
-                  <div className="flex items-center text-purple-400 group-hover:text-purple-300 transition-all duration-300">
-                    <span className="mr-2 font-medium">Learn more</span>
-                    <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-all duration-300" />
-                  </div>
+                  <Button asChild className="text-purple-400 group-hover:text-purple-300 transition-all duration-300">
+                    <Link to="/voice/login" className="flex items-center">
+                      <span className="mr-2 font-medium">Learn more</span>
+                      <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-all duration-300" />
+                    </Link>
+                  </Button>
                 </CardContent>
               </Card>
             ))}
@@ -312,102 +297,6 @@ const Landing = () => {
         </div>
       </section>
 
-      {/* Social Proof + Trust Panel */}
-      <section className="py-24 bg-black/40 backdrop-blur-md">
-        <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-white">
-            Trusted by Industry Leaders
-          </h2>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-8 mb-16">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center justify-center">
-                <div className="h-12 bg-white/10 rounded-md w-full opacity-70"></div>
-              </div>
-            ))}
-          </div>
-
-          <div className="max-w-4xl mx-auto">
-            <div className="mb-8 flex justify-center space-x-2">
-              <Badge variant="outline" className="bg-purple-900/20 text-white border-purple-500/30 hover:bg-purple-900/30 cursor-pointer">All</Badge>
-              <Badge variant="outline" className="bg-transparent text-white border-white/20 hover:bg-purple-900/30 cursor-pointer">HVAC</Badge>
-              <Badge variant="outline" className="bg-transparent text-white border-white/20 hover:bg-purple-900/30 cursor-pointer">Electrical</Badge>
-              <Badge variant="outline" className="bg-transparent text-white border-white/20 hover:bg-purple-900/30 cursor-pointer">Plumbing</Badge>
-            </div>
-
-            <Card className="bg-black/30 backdrop-blur-lg border border-purple-500/20 rounded-xl overflow-hidden">
-              <CardContent className="p-8">
-                <div className="flex flex-col space-y-1 mb-4">
-                  <div className="flex space-x-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <div key={i} className="text-purple-400">★</div>
-                    ))}
-                  </div>
-                  <div className="text-sm text-purple-300/70">Verified Customer</div>
-                </div>
-                <p className="text-lg text-white italic mb-6">
-                  "Lisa has transformed how we handle our customer service. We've seen a 43% increase in booked jobs and our admin team can finally focus on growth instead of putting out fires."
-                </p>
-                <div className="flex items-center">
-                  <div className="w-12 h-12 rounded-full bg-purple-500/20 mr-4"></div>
-                  <div>
-                    <div className="font-semibold text-white">Sarah Johnson</div>
-                    <div className="text-sm text-purple-200/70">Operations Director, AirMaster HVAC</div>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-      </section>
-
-      {/* ROI / Results Panel */}
-      <section className="py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-t from-black to-purple-900/10"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-            <span className="text-white">What Happens When </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-              Lisa Takes Over Admin
-            </span>
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-12">
-            {[
-              { metric: "+43%", title: "Jobs Booked", color: "from-purple-500 to-purple-700" },
-              { metric: "-70%", title: "Admin Time", color: "from-blue-500 to-blue-700" },
-              { metric: "+3x", title: "Faster Collections", color: "from-green-500 to-green-700" },
-              { metric: "+20%", title: "Efficiency in Routing", color: "from-indigo-500 to-indigo-700" },
-            ].map((item, i) => (
-              <div key={i} className="bg-black/20 backdrop-blur-sm rounded-xl border border-purple-500/20 overflow-hidden">
-                <div className={`h-2 bg-gradient-to-r ${item.color}`}></div>
-                <div className="p-6 text-center">
-                  <div className="text-3xl md:text-4xl font-bold mb-2 text-white">{item.metric}</div>
-                  <div className="text-purple-200/80">{item.title}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-          
-          <div className="max-w-2xl mx-auto p-8 bg-black/20 backdrop-blur-sm rounded-xl border border-purple-500/20">
-            <h3 className="text-xl font-semibold mb-4 text-white text-center">Calculate Your ROI with Lisa</h3>
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="flex-1">
-                <label className="text-sm text-purple-200 mb-1 block">Number of Technicians</label>
-                <input type="number" placeholder="10" className="w-full bg-black/40 text-white border border-purple-500/30 rounded-md p-2" />
-              </div>
-              <div className="flex-1">
-                <label className="text-sm text-purple-200 mb-1 block">Average Job Value ($)</label>
-                <input type="number" placeholder="250" className="w-full bg-black/40 text-white border border-purple-500/30 rounded-md p-2" />
-              </div>
-              <div className="self-end">
-                <Button className="bg-purple-600 hover:bg-purple-700 text-white w-full">Calculate</Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
       {/* Tech Stack + Reassurance */}
       <section className="py-24 bg-gradient-to-b from-black/60 to-purple-900/5 backdrop-blur-lg">
         <div className="container mx-auto px-4">
@@ -470,107 +359,38 @@ const Landing = () => {
           <p className="text-xl text-purple-200/90 mb-10 max-w-2xl mx-auto">
             Start offloading your repetitive tasks and watch your business grow
           </p>
-          <Button className="rounded-full bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white px-10 py-6 text-lg group transition-all duration-300">
-            <span>See What Lisa Can Do For You</span>
-            <ArrowRight className="h-5 w-5 ml-2" />
+          <Button 
+            asChild
+            className="rounded-full bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white px-10 py-6 text-lg group transition-all duration-300"
+          >
+            <Link to="/voice/login">
+              <span>Get Started with Lisa</span>
+              <ArrowRight className="h-5 w-5 ml-2" />
+            </Link>
           </Button>
           <p className="text-sm text-purple-300/60 mt-6">Setup in days. Cancel anytime. No pressure.</p>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="bg-black/80 backdrop-blur-md border-t border-purple-500/20 py-16">
+      {/* Simplified Footer */}
+      <footer className="bg-black/80 backdrop-blur-md border-t border-purple-500/20 py-10">
         <div className="container mx-auto px-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-8 mb-12">
-            <div className="col-span-2">
-              <h3 className="text-2xl font-bold text-white mb-4">Lisa AI</h3>
-              <p className="text-purple-200/70 max-w-xs">
-                Lisa is built for the doers. The fixers. The ones who don't have time for admin.
-                We're building AI that works as hard as you do.
-              </p>
+          <div className="flex flex-col items-center text-center">
+            <div className="flex items-center mb-4">
+              <Headphones className="h-6 w-6 mr-2 text-purple-400" />
+              <span className="text-2xl font-bold text-white">Lisa AI</span>
             </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Products</h4>
-              <ul className="space-y-2">
-                <FooterLink>AI Calling</FooterLink>
-                <FooterLink>Smart Scheduling</FooterLink>
-                <FooterLink>Invoice Management</FooterLink>
-                <FooterLink>Field Operations</FooterLink>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Use Cases</h4>
-              <ul className="space-y-2">
-                <FooterLink>HVAC Companies</FooterLink>
-                <FooterLink>Plumbing Business</FooterLink>
-                <FooterLink>Electrical Contractors</FooterLink>
-                <FooterLink>General Contractors</FooterLink>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Resources</h4>
-              <ul className="space-y-2">
-                <FooterLink>Blog</FooterLink>
-                <FooterLink>Case Studies</FooterLink>
-                <FooterLink>Help Center</FooterLink>
-                <FooterLink>API Documentation</FooterLink>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold text-white mb-4">Company</h4>
-              <ul className="space-y-2">
-                <FooterLink>About Us</FooterLink>
-                <FooterLink>Careers</FooterLink>
-                <FooterLink>Contact</FooterLink>
-                <FooterLink>Privacy Policy</FooterLink>
-              </ul>
-            </div>
-          </div>
-          
-          <div className="border-t border-purple-500/20 pt-6 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-purple-200/50 text-sm mb-4 md:mb-0">
+            <p className="text-purple-200/70 max-w-md mb-6">
+              Lisa is built for the doers. The fixers. The ones who don't have time for admin.
+              We're building AI that works as hard as you do.
+            </p>
+            <p className="text-purple-200/50 text-sm">
               © 2025 Lisa AI. All rights reserved.
             </p>
-            <div className="flex space-x-4">
-              <a href="#" className="text-purple-200/50 hover:text-purple-200">
-                <span className="sr-only">Twitter</span>
-                <span className="h-6 w-6 block">X</span>
-              </a>
-              <a href="#" className="text-purple-200/50 hover:text-purple-200">
-                <span className="sr-only">LinkedIn</span>
-                <span className="h-6 w-6 block">in</span>
-              </a>
-              <a href="#" className="text-purple-200/50 hover:text-purple-200">
-                <span className="sr-only">GitHub</span>
-                <span className="h-6 w-6 block">GH</span>
-              </a>
-            </div>
           </div>
         </div>
       </footer>
     </div>
-  );
-};
-
-// Helper components
-const NavItem = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <div className="relative group">
-      <a href="#" className="text-white/80 hover:text-white transition-colors duration-200">
-        {children}
-      </a>
-      <div className="absolute bottom-[-2px] left-0 w-0 h-[2px] bg-purple-500 group-hover:w-full transition-all duration-300"></div>
-    </div>
-  );
-};
-
-const FooterLink = ({ children }: { children: React.ReactNode }) => {
-  return (
-    <li>
-      <a href="#" className="text-purple-200/70 hover:text-white transition-colors duration-200">
-        {children}
-      </a>
-    </li>
   );
 };
 

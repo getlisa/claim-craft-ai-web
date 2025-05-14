@@ -27,7 +27,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!isAuthenticated) {
-    return <Navigate to="/login" />;
+    return <Navigate to="/voice/login" />;
   }
   
   return <>{children}</>;
@@ -36,10 +36,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Landing />} />
-      <Route path="/login" element={<Login />} />
+      <Route path="/" element={<Navigate to="/voice" />} />
+      <Route path="/voice" element={<Landing />} />
+      <Route path="/voice/login" element={<Login />} />
       <Route 
-        path="/dashboard" 
+        path="/voice/dashboard" 
         element={
           <ProtectedRoute>
             <Dashboard />
