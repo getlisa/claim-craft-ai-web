@@ -7,9 +7,9 @@ import { supabase } from './lib/supabase'
 // Add initialization for auth persistence
 async function initializeApp() {
   // Try to restore auth session on page load
-  const { data } = await supabase.auth.getSession();
+  await supabase.auth.getSession();
   
-  createRoot(document.getElementById("root")!).render(<App initialSession={data?.session} />);
+  createRoot(document.getElementById("root")!).render(<App />);
 }
 
 initializeApp();

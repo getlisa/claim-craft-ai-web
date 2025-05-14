@@ -14,11 +14,11 @@ interface AppLayoutProps {
 }
 
 const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
-  const { signOut, user } = useAuth();
+  const { logout, userEmail } = useAuth();
 
   const handleSignOut = async () => {
     try {
-      await signOut();
+      await logout();
       toast.success("Signed out successfully");
     } catch (error: any) {
       toast.error(error.message || "Failed to sign out");
@@ -73,10 +73,10 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
           <Separator className="my-4" />
 
           <div className="pt-4 space-y-4">
-            {user && (
+            {userEmail && (
               <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-sm font-medium">{user.email}</p>
-                <p className="text-xs text-gray-500 mt-1">{user.user_metadata?.agent_id || 'Agent ID not set'}</p>
+                <p className="text-sm font-medium">{userEmail}</p>
+                <p className="text-xs text-gray-500 mt-1">Agent ID: {useAuth().agentId || 'Not set'}</p>
               </div>
             )}
             
