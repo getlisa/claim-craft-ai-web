@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +8,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
+import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
 import {
   Table,
   TableBody,
@@ -35,38 +35,57 @@ const DashboardTab = () => {
     setError(null);
 
     try {
-      // Fetch call data from Supabase
-      const { data: callData, error: callError } = await supabase
+      // Fetch calls directly from API
+      const apiCalls = await fetchCallsFromApi(agentId);
+      
+      // Then fetch edited calls from Supabase
+      const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
-        .eq('agent_id', agentId)
-        .order('start_timestamp', { ascending: false });
+        .eq('agent_id', agentId);
 
-      if (callError) throw callError;
-
-      if (!callData || callData.length === 0) {
-        setCallStats({
-          totalCalls: 0,
-          avgDuration: "0:00",
-          successfulCalls: 0,
-          sentimentData: [],
-          recentCalls: []
+      if (dbError) throw dbError;
+      
+      // Create a map of edited calls by call_id for fast lookup
+      const editedCallsMap = new Map();
+      if (dbCalls && dbCalls.length > 0) {
+        dbCalls.forEach(dbCall => {
+          // Only add to map if it has user edits
+          if (dbCall.appointment_status || dbCall.appointment_date || 
+              dbCall.appointment_time || dbCall.notes) {
+            editedCallsMap.set(dbCall.call_id, dbCall);
+          }
         });
-        setIsLoading(false);
-        return;
       }
+      
+      // Merge API calls with edited data from DB
+      const mergedCalls = apiCalls.map(apiCall => {
+        const editedCall = editedCallsMap.get(apiCall.call_id);
+        if (editedCall) {
+          // Keep API data but override with edited fields
+          return {
+            ...apiCall,
+            appointment_status: editedCall.appointment_status,
+            appointment_date: editedCall.appointment_date,
+            appointment_time: editedCall.appointment_time,
+            notes: editedCall.notes,
+            id: editedCall.id
+          };
+        }
+        return apiCall;
+      });
 
       // Calculate total calls
-      const totalCalls = callData.length;
+      const totalCalls = mergedCalls.length;
 
       // Calculate successful calls (completed status)
-      const successfulCalls = callData.filter(call => call.call_status === 'completed').length;
+      const successfulCalls = mergedCalls.filter(call => call.call_status === 'completed').length;
 
       // Calculate average duration
       let totalDurationMs = 0;
       let callsWithDuration = 0;
 
-      callData.forEach(call => {
+      mergedCalls.forEach(call => {
         if (call.start_timestamp && call.end_timestamp) {
           const start = new Date(call.start_timestamp).getTime();
           const end = new Date(call.end_timestamp).getTime();
@@ -94,8 +113,10 @@ const DashboardTab = () => {
         negative: 0 
       };
 
-      callData.forEach(call => {
-        const sentiment = call.user_sentiment?.toLowerCase() || 'neutral';
+      mergedCalls.forEach(call => {
+        const sentiment = call.user_sentiment?.toLowerCase() || 
+                         call.call_analysis?.user_sentiment?.toLowerCase() || 
+                         'neutral';
         if (['positive', 'neutral', 'negative'].includes(sentiment)) {
           sentimentCounts[sentiment]++;
         } else {
@@ -110,7 +131,7 @@ const DashboardTab = () => {
       ];
 
       // Get the 5 most recent calls
-      const recentCalls = callData.slice(0, 5);
+      const recentCalls = mergedCalls.slice(0, 5);
 
       setCallStats({
         totalCalls,

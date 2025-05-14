@@ -6,15 +6,13 @@ import { Button } from "@/components/ui/button";
 import { Loader2, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
 
 const Index = () => {
   const [calls, setCalls] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { agentId, userEmail, logout } = useAuth();
-
-  const apiKey = 'key_a1bb2ca857089316392d48972a6f';
-  const apiUrl = 'https://api.retellai.com/v2/list-calls';
 
   const fetchCalls = async () => {
     if (!agentId) {
@@ -26,27 +24,12 @@ const Index = () => {
     setError(null);
     
     try {
-      const response = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${apiKey}`
-        },
-        body: JSON.stringify({
-          filter_criteria: { agent_id: [agentId] },
-          limit: 10
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Error: ${response.status} ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setCalls(Array.isArray(data) ? data : []);
+      // Get calls directly from API
+      const apiCalls = await fetchCallsFromApi(agentId);
+      setCalls(Array.isArray(apiCalls) ? apiCalls : []);
       
-      if (Array.isArray(data) && data.length > 0) {
-        toast.success(`Successfully loaded ${data.length} calls`);
+      if (apiCalls.length > 0) {
+        toast.success(`Successfully loaded ${apiCalls.length} calls`);
       } else {
         toast.info("No calls found for this agent ID");
       }

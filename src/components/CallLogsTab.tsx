@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Search, Info, Edit, Calendar } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -33,7 +32,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { fetchCallsFromApi, saveCallToSupabase, CallData } from "@/lib/migrateCallsToSupabase";
 
 const CallLogsTab = () => {
   const [calls, setCalls] = useState<any[]>([]);
@@ -62,20 +61,52 @@ const CallLogsTab = () => {
     setError(null);
     
     try {
-      // Fetch from Supabase
-      const { data, error: fetchError } = await supabase
+      // First, fetch calls directly from API
+      const apiCalls = await fetchCallsFromApi(agentId);
+      
+      // Then fetch edited calls from Supabase
+      const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
-        .eq('agent_id', agentId)
-        .order('start_timestamp', { ascending: false });
+        .eq('agent_id', agentId);
+
+      if (dbError) throw dbError;
       
-      if (fetchError) throw fetchError;
+      // Create a map of edited calls by call_id for fast lookup
+      const editedCallsMap = new Map();
+      if (dbCalls && dbCalls.length > 0) {
+        dbCalls.forEach(dbCall => {
+          // Only add to map if it has user edits
+          if (dbCall.appointment_status || dbCall.appointment_date || 
+              dbCall.appointment_time || dbCall.notes) {
+            editedCallsMap.set(dbCall.call_id, dbCall);
+          }
+        });
+      }
       
-      if (data && data.length > 0) {
-        setCalls(data);
-        toast.success(`Successfully loaded ${data.length} calls`);
+      // Merge API calls with edited data from DB
+      const mergedCalls = apiCalls.map(apiCall => {
+        const editedCall = editedCallsMap.get(apiCall.call_id);
+        if (editedCall) {
+          // Keep API data but override with edited fields
+          return {
+            ...apiCall,
+            appointment_status: editedCall.appointment_status,
+            appointment_date: editedCall.appointment_date,
+            appointment_time: editedCall.appointment_time,
+            notes: editedCall.notes,
+            // Store the database ID for future updates
+            id: editedCall.id
+          };
+        }
+        return apiCall;
+      });
+      
+      setCalls(mergedCalls);
+      
+      if (mergedCalls.length > 0) {
+        toast.success(`Successfully loaded ${mergedCalls.length} calls`);
       } else {
-        setCalls([]);
         toast.info("No calls found for this agent ID");
       }
     } catch (error: any) {
@@ -189,27 +220,39 @@ const CallLogsTab = () => {
   };
 
   const saveCallEdits = async () => {
-    if (!selectedCall || !selectedCall.id) {
+    if (!selectedCall || !selectedCall.call_id) {
       toast.error("No call selected or call ID missing");
       return;
     }
     
     try {
-      const { error } = await supabase
-        .from('call_logs')
-        .update({
-          appointment_status: editingCallData.appointment_status,
-          appointment_date: editingCallData.appointment_date,
-          appointment_time: editingCallData.appointment_time,
-          notes: editingCallData.notes
-        })
-        .eq('id', selectedCall.id);
+      // Prepare call data for saving
+      const callData: CallData = {
+        ...selectedCall,
+        agent_id: agentId,
+        appointment_status: editingCallData.appointment_status,
+        appointment_date: editingCallData.appointment_date,
+        appointment_time: editingCallData.appointment_time,
+        notes: editingCallData.notes
+      };
       
-      if (error) throw error;
+      // Save to database
+      const success = await saveCallToSupabase(callData);
       
-      toast.success("Call updated successfully");
-      setEditDialogOpen(false);
-      fetchCalls(); // Refresh the data
+      if (success) {
+        toast.success("Call updated successfully");
+        
+        // Update the call in the local state
+        setCalls(calls.map(call => 
+          call.call_id === selectedCall.call_id 
+            ? { ...call, ...editingCallData } 
+            : call
+        ));
+        
+        setEditDialogOpen(false);
+      } else {
+        toast.error("Failed to update call");
+      }
     } catch (error: any) {
       console.error("Error updating call:", error);
       toast.error(error.message || "Failed to update call");
