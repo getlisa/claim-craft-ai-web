@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -31,7 +32,7 @@ const Login = () => {
     }
 
     try {
-      await login(email, password); // Fixed: removed agentId parameter as it's now retrieved from profiles table
+      await login(email, password);
       navigate("/");
     } catch (error) {
       // Error toast is displayed by the context
@@ -73,11 +74,11 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-blue-50 to-white p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
       <div className="w-full max-w-md">
         <Card className="shadow-xl border-gray-100">
           <CardHeader className="space-y-1 text-center">
-            <CardTitle className="text-2xl font-bold">Retell AI Calls</CardTitle>
+            <CardTitle className="text-2xl font-bold">Lisa AI Voice Assistant</CardTitle>
             <CardDescription>Login to access your call records</CardDescription>
           </CardHeader>
           <CardContent>
@@ -190,7 +191,7 @@ const Login = () => {
                         onChange={(e) => setAgentId(e.target.value)}
                       />
                     </div>
-                    <p className="text-xs text-gray-500">Enter your Retell AI agent ID (starts with 'agent_')</p>
+                    <p className="text-xs text-gray-500">Enter your Agent ID (starts with 'agent_')</p>
                   </div>
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? (

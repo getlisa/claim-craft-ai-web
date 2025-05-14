@@ -1,10 +1,19 @@
 
+import { useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogTrigger 
+} from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface CallCardProps {
   call: any;
@@ -13,6 +22,18 @@ interface CallCardProps {
 }
 
 const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand }) => {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("summary");
+  const [playingIndex, setPlayingIndex] = useState<number | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+
+  // Parse transcript into lines
+  const transcriptLines = call.transcript 
+    ? call.transcript.split(/(?<=[.!?])\s+/)
+      .filter((line: string) => line.trim().length > 0)
+      .map((line: string, index: number) => ({ id: index, text: line.trim() }))
+    : [];
+
   const formatDate = (timestamp: string) => {
     if (!timestamp) return "N/A";
     return format(new Date(timestamp), "MMM d, yyyy h:mm a");
@@ -44,102 +65,318 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
-      <CardHeader className="bg-gradient-to-r from-blue-50 to-indigo-50 pb-2">
-        <div className="flex flex-wrap justify-between items-center">
-          <div className="flex items-center gap-2">
-            <Phone className="w-4 h-4 text-blue-500" />
-            <CardTitle className="text-lg font-medium">{call.call_id.substring(0, 12)}...</CardTitle>
-            <Badge className={cn("ml-2", getStatusColor(call.call_status))}>
-              {call.call_status}
-            </Badge>
-          </div>
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Clock className="w-4 h-4" />
-            <span>{getDuration()}</span>
-            <Badge variant="outline" className="ml-2">
-              {call.call_type}
-            </Badge>
-          </div>
-        </div>
-      </CardHeader>
+  const handlePlayLine = (index: number) => {
+    if (!audioElement) return;
+    
+    // Rough estimation of timing based on word count and average speaking rate
+    const lines = transcriptLines;
+    let startTime = 0;
+    
+    for (let i = 0; i < index; i++) {
+      const wordCount = lines[i].text.split(/\s+/).length;
+      // Assuming average of 150 words per minute (2.5 words per second)
+      startTime += wordCount / 2.5;
+    }
+    
+    setPlayingIndex(index);
+    audioElement.currentTime = startTime;
+    audioElement.play();
+  };
+
+  const handleAudioTimeUpdate = () => {
+    if (!audioElement) return;
+    
+    // Rough estimation of current line based on time
+    const currentTime = audioElement.currentTime;
+    let accumulatedTime = 0;
+    
+    for (let i = 0; i < transcriptLines.length; i++) {
+      const wordCount = transcriptLines[i].text.split(/\s+/).length;
+      accumulatedTime += wordCount / 2.5;
       
-      <CardContent className="pt-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
-          <div className="flex items-center gap-2">
-            <User className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Started:</span>
-            <span className="font-medium">{formatDate(call.start_timestamp)}</span>
+      if (accumulatedTime > currentTime) {
+        setPlayingIndex(i);
+        break;
+      }
+    }
+  };
+
+  const handleAudioEnded = () => {
+    setPlayingIndex(null);
+  };
+
+  // Create audio element when dialog opens
+  const handleDialogOpen = (open: boolean) => {
+    setDialogOpen(open);
+    
+    if (open && call.recording_url) {
+      const audio = new Audio(call.recording_url);
+      audio.addEventListener("timeupdate", handleAudioTimeUpdate);
+      audio.addEventListener("ended", handleAudioEnded);
+      setAudioElement(audio);
+    } else {
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.removeEventListener("timeupdate", handleAudioTimeUpdate);
+        audioElement.removeEventListener("ended", handleAudioEnded);
+        setAudioElement(null);
+      }
+      setPlayingIndex(null);
+    }
+  };
+
+  // Generate a summary if one doesn't exist
+  const getSummary = () => {
+    if (call.summary) return call.summary;
+    
+    if (call.transcript) {
+      // Generate a simple summary based on first few words
+      const words = call.transcript.split(' ').slice(0, 30);
+      return `${words.join(' ')}... [Automatically generated summary]`;
+    }
+    
+    return "No summary available for this call.";
+  };
+
+  return (
+    <>
+      <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
+        <CardHeader className="bg-gradient-to-r from-purple-50 to-indigo-50 pb-2">
+          <div className="flex flex-wrap justify-between items-center">
+            <div className="flex items-center gap-2">
+              <Phone className="w-4 h-4 text-purple-500" />
+              <CardTitle className="text-lg font-medium">{call.call_id.substring(0, 12)}...</CardTitle>
+              <Badge className={cn("ml-2", getStatusColor(call.call_status))}>
+                {call.call_status}
+              </Badge>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Clock className="w-4 h-4" />
+              <span>{getDuration()}</span>
+              <Badge variant="outline" className="ml-2">
+                {call.call_type || "voice"}
+              </Badge>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <Sparkles className="w-4 h-4 text-gray-400" />
-            <span className="text-gray-500">Ended:</span>
-            <span className="font-medium">{formatDate(call.end_timestamp)}</span>
+        </CardHeader>
+        
+        <CardContent className="pt-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
+            <div className="flex items-center gap-2">
+              <User className="w-4 h-4 text-gray-400" />
+              <span className="text-gray-500">Started:</span>
+              <span className="font-medium">{formatDate(call.start_timestamp)}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-gray-400" />
+              <span className="text-gray-500">Ended:</span>
+              <span className="font-medium">{formatDate(call.end_timestamp)}</span>
+            </div>
           </div>
-        </div>
-        
-        <Button 
-          variant="ghost" 
-          onClick={onToggleExpand}
-          className="w-full flex items-center justify-center gap-2 text-blue-600 hover:text-blue-800 hover:bg-blue-50 py-1"
-        >
-          {isExpanded ? (
-            <>
-              <span>Hide Details</span>
-              <ChevronUp className="w-4 h-4" />
-            </>
-          ) : (
-            <>
-              <span>Show Details</span>
-              <ChevronDown className="w-4 h-4" />
-            </>
-          )}
-        </Button>
-        
-        {isExpanded && (
-          <div className="mt-4 space-y-4 border-t pt-4">
-            {call.transcript && (
-              <div>
-                <h4 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
-                  <Sparkles className="w-4 h-4 text-blue-500" />
-                  Transcript
-                </h4>
-                <div className="bg-gray-50 p-3 rounded-md text-gray-700 max-h-32 overflow-y-auto text-sm">
-                  {call.transcript}
+          
+          <div className="flex flex-wrap gap-2">
+            <Button 
+              variant="ghost" 
+              onClick={onToggleExpand}
+              className="flex-grow flex items-center justify-center gap-2 text-purple-600 hover:text-purple-800 hover:bg-purple-50 py-1"
+            >
+              {isExpanded ? (
+                <>
+                  <span>Hide Details</span>
+                  <ChevronUp className="w-4 h-4" />
+                </>
+              ) : (
+                <>
+                  <span>Show Details</span>
+                  <ChevronDown className="w-4 h-4" />
+                </>
+              )}
+            </Button>
+            
+            <Dialog open={dialogOpen} onOpenChange={handleDialogOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="outline"
+                  className="flex-grow flex items-center justify-center gap-2 text-purple-600 border-purple-200 hover:bg-purple-50 py-1"
+                >
+                  <Search className="w-4 h-4" />
+                  <span>View Full Details</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <Phone className="w-5 h-5 text-purple-500" />
+                    <span>Call Details</span>
+                    <Badge className={cn("ml-2", getStatusColor(call.call_status))}>
+                      {call.call_status}
+                    </Badge>
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="mt-2">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
+                    <div className="flex items-center gap-2">
+                      <User className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Call ID:</span>
+                      <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded">{call.call_id}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-gray-400" />
+                      <span className="text-gray-500">Duration:</span>
+                      <span className="font-medium">{getDuration()}</span>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            )}
-            
-            {call.recording_url && (
-              <div>
-                <h4 className="font-medium mb-2 text-gray-700">Recording</h4>
-                <audio 
-                  controls 
-                  src={call.recording_url}
-                  className="w-full"
-                >
-                  Your browser does not support the audio element.
-                </audio>
-              </div>
-            )}
-            
-            {call.public_log_url && (
-              <div className="mt-3">
-                <a 
-                  href={call.public_log_url} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="inline-block px-4 py-2 bg-blue-50 text-blue-600 rounded-md hover:bg-blue-100 transition-colors"
-                >
-                  View Complete Log
-                </a>
-              </div>
-            )}
+                
+                <div className="flex-1 overflow-hidden">
+                  <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+                    <TabsList className="grid w-full grid-cols-2 mb-4">
+                      <TabsTrigger value="summary">
+                        <Info className="w-4 h-4 mr-2" />
+                        Summary
+                      </TabsTrigger>
+                      <TabsTrigger value="transcript">
+                        <Sparkles className="w-4 h-4 mr-2" />
+                        Transcript
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="summary" className="overflow-auto max-h-[50vh] px-1">
+                      <div className="space-y-4">
+                        <div className="bg-gray-50 p-4 rounded-md">
+                          <h3 className="font-medium mb-2 text-gray-700">Call Summary</h3>
+                          <p className="text-gray-600">{getSummary()}</p>
+                        </div>
+                        
+                        <div>
+                          <h3 className="font-medium mb-2 text-gray-700">Call Details</h3>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4 text-sm">
+                            <div>
+                              <span className="text-gray-500">Agent ID:</span>
+                              <span className="ml-2">{call.agent_id || "N/A"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Call Type:</span>
+                              <span className="ml-2">{call.call_type || "voice"}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">Start Time:</span>
+                              <span className="ml-2">{formatDate(call.start_timestamp)}</span>
+                            </div>
+                            <div>
+                              <span className="text-gray-500">End Time:</span>
+                              <span className="ml-2">{formatDate(call.end_timestamp)}</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </TabsContent>
+                    
+                    <TabsContent value="transcript" className="space-y-4">
+                      {call.recording_url && (
+                        <div className="bg-gray-50 p-3 rounded-md">
+                          <h3 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
+                            <Play className="w-4 h-4 text-purple-500" />
+                            Audio Recording
+                          </h3>
+                          <audio 
+                            controls 
+                            src={call.recording_url}
+                            className="w-full"
+                          >
+                            Your browser does not support the audio element.
+                          </audio>
+                        </div>
+                      )}
+                      
+                      <div className="overflow-auto max-h-[40vh]">
+                        <h3 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
+                          <Sparkles className="w-4 h-4 text-purple-500" />
+                          Transcript
+                        </h3>
+                        
+                        {transcriptLines.length > 0 ? (
+                          <div className="space-y-2">
+                            {transcriptLines.map((line: any, idx: number) => (
+                              <div 
+                                key={line.id}
+                                className={cn(
+                                  "p-2 rounded-md flex items-start gap-2 transition-colors",
+                                  playingIndex === idx ? "bg-purple-100" : "hover:bg-gray-50"
+                                )}
+                              >
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="mt-0.5 h-5 w-5 p-0 rounded-full"
+                                  onClick={() => handlePlayLine(idx)}
+                                >
+                                  <Play className="h-3 w-3" />
+                                </Button>
+                                <p className="text-sm text-gray-700">{line.text}</p>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <div className="text-center py-8 text-gray-500">
+                            No transcript available for this call.
+                          </div>
+                        )}
+                      </div>
+                    </TabsContent>
+                  </Tabs>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
-        )}
-      </CardContent>
-    </Card>
+          
+          {isExpanded && (
+            <div className="mt-4 space-y-4 border-t pt-4">
+              {call.transcript && (
+                <div>
+                  <h4 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-purple-500" />
+                    Transcript Preview
+                  </h4>
+                  <div className="bg-gray-50 p-3 rounded-md text-gray-700 max-h-32 overflow-y-auto text-sm">
+                    {call.transcript.length > 150 
+                      ? `${call.transcript.substring(0, 150)}...` 
+                      : call.transcript}
+                  </div>
+                </div>
+              )}
+              
+              {call.recording_url && (
+                <div>
+                  <h4 className="font-medium mb-2 text-gray-700">Recording</h4>
+                  <audio 
+                    controls 
+                    src={call.recording_url}
+                    className="w-full"
+                  >
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              )}
+              
+              {call.public_log_url && (
+                <div className="mt-3">
+                  <a 
+                    href={call.public_log_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="inline-block px-4 py-2 bg-purple-50 text-purple-600 rounded-md hover:bg-purple-100 transition-colors"
+                  >
+                    View Complete Log
+                  </a>
+                </div>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </>
   );
 };
 
