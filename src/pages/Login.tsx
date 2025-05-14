@@ -4,41 +4,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import LoginForm from "@/components/LoginForm";
 import RegisterForm from "@/components/RegisterForm";
-import OtpVerification from "@/components/OtpVerification";
-import { useNavigate } from "react-router-dom";
 
 const Login = () => {
   const [activeTab, setActiveTab] = useState("login");
-  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
-  const navigate = useNavigate();
-
-  const handleRegisterSuccess = (email: string) => {
-    setVerificationEmail(email);
-  };
-
-  const handleVerificationSuccess = () => {
-    navigate("/");
-  };
-
-  const handleBackToLogin = () => {
-    setVerificationEmail(null);
-    setActiveTab("login");
-  };
-
-  // Show OTP verification if a verification email exists
-  if (verificationEmail) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
-        <div className="w-full max-w-md">
-          <OtpVerification 
-            email={verificationEmail} 
-            onVerificationSuccess={handleVerificationSuccess}
-            onBack={handleBackToLogin}
-          />
-        </div>
-      </div>
-    );
-  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
@@ -60,7 +28,7 @@ const Login = () => {
               </TabsContent>
               
               <TabsContent value="register">
-                <RegisterForm onRegisterSuccess={handleRegisterSuccess} />
+                <RegisterForm />
               </TabsContent>
             </Tabs>
           </CardContent>

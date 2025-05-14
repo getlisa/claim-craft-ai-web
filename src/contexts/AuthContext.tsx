@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -5,16 +6,12 @@ import { toast } from "sonner";
 interface AuthContextType {
   isAuthenticated: boolean;
   agentId: string;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<boolean>;
   logout: () => Promise<void>;
   register: (email: string, password: string, newAgentId: string) => Promise<{
     success: boolean;
-    rateLimited: boolean;
-    retryAfter?: number;
     error?: string;
   }>;
-  verifyOTP: (email: string, token: string) => Promise<boolean>;
-  resendOTP: (email: string) => Promise<boolean>;
   userEmail: string | null;
   isLoading: boolean;
 }
@@ -22,11 +19,9 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
   agentId: "",
-  login: async () => {},
+  login: async () => false,
   logout: async () => {},
-  register: async () => ({ success: false, rateLimited: false }),
-  verifyOTP: async () => false,
-  resendOTP: async () => false,
+  register: async () => ({ success: false }),
   userEmail: null,
   isLoading: true,
 });
@@ -102,45 +97,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string): Promise<{
     success: boolean;
-    rateLimited: boolean;
-    retryAfter?: number;
     error?: string;
   }> => {
     try {
-      // Get the current site URL for redirects
-      const redirectUrl = window.location.origin + '/login';
-      
-      // Register the user with email confirmation required
+      // Register user without email verification
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          emailRedirectTo: redirectUrl
+          // No email verification needed
+          emailRedirectTo: null,
         }
       });
       
       if (error) {
-        // Check for rate limiting errors
-        if (error.message.toLowerCase().includes("rate limit")) {
-          // Try to parse retry time from error message if available
-          const retryTimeMatch = error.message.match(/try again in (\d+)s/i);
-          const retryAfter = retryTimeMatch ? parseInt(retryTimeMatch[1], 10) : 60;
-          
-          toast.error(`Too many registration attempts. Please try again later.`);
-          return { 
-            success: false, 
-            rateLimited: true,
-            retryAfter, 
-            error: error.message 
-          };
-        } else {
-          toast.error(error.message || "Registration failed");
-          return { 
-            success: false, 
-            rateLimited: false, 
-            error: error.message 
-          };
-        }
+        toast.error(error.message || "Registration failed");
+        return { 
+          success: false,
+          error: error.message 
+        };
       }
       
       if (data.user) {
@@ -158,44 +133,60 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         if (profileError) {
           toast.error(profileError.message || "Failed to create user profile");
           return { 
-            success: false, 
-            rateLimited: false,
+            success: false,
             error: profileError.message 
           };
         }
         
-        // Set temporary email for verification process
-        setUserEmail(email);
+        // Auto sign-in the user after registration
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
         
-        toast.success("Registration successful! Please check your email for verification code.");
-        return { success: true, rateLimited: false };
+        if (signInError) {
+          toast.error(signInError.message || "Auto login failed after registration");
+          return { 
+            success: false,
+            error: signInError.message 
+          };
+        }
+        
+        setIsAuthenticated(true);
+        setUserEmail(email);
+        setAgentId(newAgentId);
+        
+        toast.success("Registration successful! You are now logged in.");
+        return { success: true };
       }
-      return { success: false, rateLimited: false, error: "Unknown registration error" };
+      
+      return { success: false, error: "Unknown registration error" };
     } catch (error: any) {
       const errorMsg = error.message || "Registration failed";
       toast.error(errorMsg);
       return { 
-        success: false, 
-        rateLimited: errorMsg.toLowerCase().includes("rate limit"), 
+        success: false,
         error: errorMsg 
       };
     }
   };
 
-  const verifyOTP = async (email: string, token: string): Promise<boolean> => {
+  const login = async (email: string, password: string): Promise<boolean> => {
     try {
-      const { data, error } = await supabase.auth.verifyOtp({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
-        token,
-        type: 'signup'
+        password,
       });
       
       if (error) {
-        toast.error("Invalid or expired verification code");
+        toast.error(error.message || "Login failed");
         return false;
       }
       
       if (data.user) {
+        setIsAuthenticated(true);
+        setUserEmail(email);
+        
         // Get the agent ID from the profiles table
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
@@ -204,85 +195,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .single();
           
         if (profileError) {
-          toast.error("Failed to retrieve profile information");
-          return false;
-        }
-        
-        // Update context state
-        setIsAuthenticated(true);
-        setUserEmail(email);
-        
-        if (profile?.agent_id) {
+          console.error("Error fetching profile:", profileError);
+        } else if (profile?.agent_id) {
           setAgentId(profile.agent_id);
         }
         
-        toast.success("Email verified! You are now logged in.");
+        toast.success("Login successful!");
         return true;
       }
       
       return false;
     } catch (error: any) {
-      console.error("OTP verification error:", error);
-      toast.error(error.message || "Verification failed");
-      return false;
-    }
-  };
-
-  const resendOTP = async (email: string): Promise<boolean> => {
-    try {
-      const { error } = await supabase.auth.resend({
-        type: 'signup',
-        email
-      });
-      
-      if (error) {
-        if (error.message.includes("rate limit")) {
-          toast.error("Too many verification attempts. Please try again later.");
-        } else {
-          toast.error(error.message || "Failed to resend verification code");
-        }
-        return false;
-      }
-      
-      toast.success("Verification code has been resent to your email");
-      return true;
-    } catch (error: any) {
-      toast.error(error.message || "Failed to resend verification code");
-      return false;
-    }
-  };
-
-  const login = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-      
-      if (error) throw error;
-      
-      if (data.user) {
-        setIsAuthenticated(true);
-        setUserEmail(email);
-        
-        // Get the agent ID from the profiles table
-        const { data: profile, error: profileError } = await supabase
-          .from('user_profiles')
-          .select('agent_id')
-          .eq('user_id', data.user.id)
-          .single();
-          
-        if (profileError) throw profileError;
-        
-        if (profile?.agent_id) {
-          setAgentId(profile.agent_id);
-        }
-        
-        toast.success("Login successful!");
-      }
-    } catch (error: any) {
       toast.error(error.message || "Login failed");
-      throw error;
+      return false;
     }
   };
 
@@ -307,8 +232,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login, 
       logout, 
       register,
-      verifyOTP,
-      resendOTP,
       userEmail,
       isLoading
     }}>

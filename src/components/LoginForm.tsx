@@ -27,10 +27,10 @@ const LoginForm = () => {
     }
 
     try {
-      await login(email, password);
-      navigate("/");
-    } catch (error) {
-      // Error toast is displayed by the context
+      const success = await login(email, password);
+      if (success) {
+        navigate("/");
+      }
     } finally {
       setIsLoading(false);
     }
