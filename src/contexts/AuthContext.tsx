@@ -100,12 +100,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     error?: string;
   }> => {
     try {
-      // Register user without email verification
+      // Register user with automatic sign-in
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // No email verification needed
+          data: {
+            agent_id: newAgentId
+          },
           emailRedirectTo: null,
         }
       });
