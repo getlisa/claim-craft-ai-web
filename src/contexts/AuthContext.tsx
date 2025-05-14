@@ -1,7 +1,5 @@
-
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js";
 import { toast } from "sonner";
 
 interface AuthContextType {
@@ -9,9 +7,9 @@ interface AuthContextType {
   agentId: string;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, newAgentId: string) => Promise<void>;
+  register: (email: string, password: string, newAgentId: string) => Promise<boolean>;
   verifyOTP: (email: string, token: string) => Promise<boolean>;
-  resendOTP: (email: string) => Promise<void>;
+  resendOTP: (email: string) => Promise<boolean>;
   userEmail: string | null;
   isLoading: boolean;
 }
@@ -21,9 +19,9 @@ const AuthContext = createContext<AuthContextType>({
   agentId: "",
   login: async () => {},
   logout: async () => {},
-  register: async () => {},
+  register: async () => false,
   verifyOTP: async () => false,
-  resendOTP: async () => {},
+  resendOTP: async () => false,
   userEmail: null,
   isLoading: true,
 });
@@ -97,7 +95,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     };
   }, []);
 
-  const register = async (email: string, password: string, newAgentId: string) => {
+  const register = async (email: string, password: string, newAgentId: string): Promise<boolean> => {
     try {
       // Register the user with email confirmation required
       const { data, error } = await supabase.auth.signUp({
@@ -105,7 +103,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         password,
       });
       
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("rate limit")) {
+          toast.error("Too many registration attempts. Please try again later.");
+        } else {
+          toast.error(error.message || "Registration failed");
+        }
+        return false;
+      }
       
       if (data.user) {
         // Create a profile record with the agent ID
@@ -119,17 +124,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             }
           ]);
           
-        if (profileError) throw profileError;
+        if (profileError) {
+          toast.error(profileError.message || "Failed to create user profile");
+          return false;
+        }
         
         // Set temporary email for verification process
         setUserEmail(email);
         
         toast.success("Registration successful! Please check your email for verification code.");
-        return;
+        return true;
       }
+      return false;
     } catch (error: any) {
-      toast.error(error.message || "Registration failed");
-      throw error;
+      const errorMsg = error.message || "Registration failed";
+      toast.error(errorMsg);
+      return false;
     }
   };
 
@@ -143,7 +153,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         toast.error("Invalid or expired verification code");
-        throw error;
+        return false;
       }
       
       if (data.user) {
@@ -154,7 +164,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           .eq('user_id', data.user.id)
           .single();
           
-        if (profileError) throw profileError;
+        if (profileError) {
+          toast.error("Failed to retrieve profile information");
+          return false;
+        }
         
         // Update context state
         setIsAuthenticated(true);
@@ -171,22 +184,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return false;
     } catch (error: any) {
       console.error("OTP verification error:", error);
+      toast.error(error.message || "Verification failed");
       return false;
     }
   };
 
-  const resendOTP = async (email: string) => {
+  const resendOTP = async (email: string): Promise<boolean> => {
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email
       });
       
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("rate limit")) {
+          toast.error("Too many verification attempts. Please try again later.");
+        } else {
+          toast.error(error.message || "Failed to resend verification code");
+        }
+        return false;
+      }
       
       toast.success("Verification code has been resent to your email");
+      return true;
     } catch (error: any) {
       toast.error(error.message || "Failed to resend verification code");
+      return false;
     }
   };
 

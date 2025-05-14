@@ -43,8 +43,10 @@ const RegisterForm = ({ onRegisterSuccess }: RegisterFormProps) => {
     }
 
     try {
-      await register(email, password, agentId);
-      onRegisterSuccess(email);
+      const success = await register(email, password, agentId);
+      if (success) {
+        onRegisterSuccess(email);
+      }
     } catch (error) {
       // Error toast is displayed by the context
     } finally {

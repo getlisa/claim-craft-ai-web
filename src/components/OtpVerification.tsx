@@ -17,6 +17,7 @@ const OtpVerification = ({ email, onVerificationSuccess, onBack }: OtpVerificati
   const [otp, setOtp] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
   const [isResending, setIsResending] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
   const { verifyOTP, resendOTP } = useAuth();
   
   const handleVerify = async () => {
@@ -31,17 +32,30 @@ const OtpVerification = ({ email, onVerificationSuccess, onBack }: OtpVerificati
       if (success) {
         onVerificationSuccess();
       }
-    } catch (error) {
-      // Error is handled in the context
     } finally {
       setIsVerifying(false);
     }
   };
 
   const handleResendOtp = async () => {
+    if (resendCountdown > 0) return;
+    
     setIsResending(true);
     try {
-      await resendOTP(email);
+      const success = await resendOTP(email);
+      if (success) {
+        // Start a 60-second countdown to prevent too many resend attempts
+        setResendCountdown(60);
+        const countdownInterval = setInterval(() => {
+          setResendCountdown((prev) => {
+            if (prev <= 1) {
+              clearInterval(countdownInterval);
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
     } finally {
       setIsResending(false);
     }
@@ -96,9 +110,9 @@ const OtpVerification = ({ email, onVerificationSuccess, onBack }: OtpVerificati
             variant="link" 
             className="p-0 h-auto font-semibold" 
             onClick={handleResendOtp}
-            disabled={isResending}
+            disabled={isResending || resendCountdown > 0}
           >
-            {isResending ? "Sending..." : "Resend"}
+            {isResending ? "Sending..." : resendCountdown > 0 ? `Resend in ${resendCountdown}s` : "Resend"}
           </Button>
         </div>
         <Button 
