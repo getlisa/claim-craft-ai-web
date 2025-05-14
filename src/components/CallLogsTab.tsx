@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { Info, Edit, Calendar, Play, Pause, Headphones } from "lucide-react";
+import { Info, Edit, Calendar, Play, Pause, Headphones, Search, Filter, X } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
@@ -32,7 +33,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { fetchCallsFromApi, saveCallToSupabase, CallData } from "@/lib/migrateCallsToSupabase";
+import { 
+  Popover, 
+  PopoverContent, 
+  PopoverTrigger 
+} from "./ui/popover";
+import { Separator } from "./ui/separator";
+import { saveCallToSupabase, fetchCallsFromApi, CallData } from "@/lib/migrateCallsToSupabase";
 
 interface CallLogsTabProps {
   initialCalls?: any[];
@@ -64,6 +71,18 @@ const CallLogsTab = ({
   });
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  
+  // Advanced filtering state
+  const [filters, setFilters] = useState({
+    callStatus: "",
+    appointmentStatus: "",
+    dateFrom: "",
+    dateTo: "",
+    minDuration: "",
+    maxDuration: ""
+  });
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   
   // Load calls from props or fetch them
   useEffect(() => {
@@ -116,6 +135,7 @@ const CallLogsTab = ({
             appointment_date: dbCall.appointment_date || apiCall.appointment_date,
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             notes: dbCall.notes || apiCall.notes,
+            from_number: dbCall.from_number || apiCall.from_number || "",
             // Store the database ID for future updates
             id: dbCall.id
           };
@@ -335,25 +355,297 @@ const CallLogsTab = ({
     });
     setEditDialogOpen(true);
   };
+  
+  // Advanced filtering handlers
+  const handleFilterChange = (key: string, value: string) => {
+    setFilters({
+      ...filters,
+      [key]: value
+    });
+    
+    // Update active filters
+    if (value) {
+      if (!activeFilters.includes(key)) {
+        setActiveFilters([...activeFilters, key]);
+      }
+    } else {
+      setActiveFilters(activeFilters.filter(filter => filter !== key));
+    }
+  };
 
-  const filteredCalls = calls;
+  const clearFilter = (key: string) => {
+    setFilters({
+      ...filters,
+      [key]: ""
+    });
+    setActiveFilters(activeFilters.filter(filter => filter !== key));
+  };
+
+  const clearAllFilters = () => {
+    setFilters({
+      callStatus: "",
+      appointmentStatus: "",
+      dateFrom: "",
+      dateTo: "",
+      minDuration: "",
+      maxDuration: ""
+    });
+    setActiveFilters([]);
+    setSearchQuery("");
+  };
+  
+  const getFilterLabel = (key: string): string => {
+    switch(key) {
+      case "callStatus": return "Call Status";
+      case "appointmentStatus": return "Appointment Status";
+      case "dateFrom": return "Date From";
+      case "dateTo": return "Date To";
+      case "minDuration": return "Min Duration";
+      case "maxDuration": return "Max Duration";
+      default: return key;
+    }
+  };
+
+  const getFilterDisplayValue = (key: string): string => {
+    switch(key) {
+      case "dateFrom": 
+      case "dateTo":
+        return filters[key] ? new Date(filters[key]).toLocaleDateString() : '';
+      case "minDuration":
+      case "maxDuration":
+        return `${filters[key]} min`;
+      default:
+        return filters[key];
+    }
+  };
+  
+  // Apply all filtering criteria
+  const filteredCalls = calls.filter(call => {
+    // Text search
+    if (searchQuery && !JSON.stringify(call).toLowerCase().includes(searchQuery.toLowerCase())) {
+      return false;
+    }
+
+    // Call status filter
+    if (filters.callStatus && call.call_status !== filters.callStatus) {
+      return false;
+    }
+
+    // Appointment status filter
+    if (filters.appointmentStatus && call.appointment_status !== filters.appointmentStatus) {
+      return false;
+    }
+
+    // Date range filter
+    if (filters.dateFrom) {
+      const fromDate = new Date(filters.dateFrom);
+      const callDate = new Date(call.start_timestamp);
+      if (callDate < fromDate) {
+        return false;
+      }
+    }
+
+    if (filters.dateTo) {
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59); // End of the day
+      const callDate = new Date(call.start_timestamp);
+      if (callDate > toDate) {
+        return false;
+      }
+    }
+
+    // Duration filter
+    if (call.start_timestamp && call.end_timestamp) {
+      const start = new Date(call.start_timestamp).getTime();
+      const end = new Date(call.end_timestamp).getTime();
+      const durationSec = (end - start) / 1000;
+      
+      if (filters.minDuration && durationSec < parseInt(filters.minDuration) * 60) {
+        return false;
+      }
+      
+      if (filters.maxDuration && durationSec > parseInt(filters.maxDuration) * 60) {
+        return false;
+      }
+    }
+
+    return true;
+  });
 
   return (
     <div>
       <div className="flex flex-col mb-6">
         <div className="flex justify-between items-center mb-4">
           <div className="relative flex-1 max-w-md">
-            
+            <div className="relative">
+              <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search calls..."
+                className="pl-10"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
           </div>
-          <Button 
-            variant="outline"
-            onClick={refreshCalls || fetchCalls}
-            disabled={loading}
-            size="sm"
-          >
-            Refresh Calls
-          </Button>
+          
+          <div className="flex gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center gap-2"
+                >
+                  <Filter className="h-4 w-4" />
+                  <span>Filters</span>
+                  {activeFilters.length > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {activeFilters.length}
+                    </Badge>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-80 p-4">
+                <div className="space-y-4">
+                  <h3 className="font-medium text-sm">Advanced Filters</h3>
+                  <Separator />
+                  
+                  {/* Call Status filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="call-status">Call Status</Label>
+                    <Select 
+                      value={filters.callStatus} 
+                      onValueChange={(value) => handleFilterChange("callStatus", value)}
+                    >
+                      <SelectTrigger id="call-status">
+                        <SelectValue placeholder="Any status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Any status</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="in-progress">In Progress</SelectItem>
+                        <SelectItem value="failed">Failed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Appointment Status filter */}
+                  <div className="space-y-2">
+                    <Label htmlFor="appointment-status">Appointment Status</Label>
+                    <Select 
+                      value={filters.appointmentStatus} 
+                      onValueChange={(value) => handleFilterChange("appointmentStatus", value)}
+                    >
+                      <SelectTrigger id="appointment-status">
+                        <SelectValue placeholder="Any status" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="">Any status</SelectItem>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="in-process">In Process</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  
+                  {/* Date range filter */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="date-from">From Date</Label>
+                      <Input
+                        id="date-from"
+                        type="date"
+                        value={filters.dateFrom}
+                        onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="date-to">To Date</Label>
+                      <Input
+                        id="date-to"
+                        type="date"
+                        value={filters.dateTo}
+                        onChange={(e) => handleFilterChange("dateTo", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  {/* Duration filter */}
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="space-y-2">
+                      <Label htmlFor="min-duration">Min Duration (min)</Label>
+                      <Input
+                        id="min-duration"
+                        type="number"
+                        min="0"
+                        value={filters.minDuration}
+                        onChange={(e) => handleFilterChange("minDuration", e.target.value)}
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label htmlFor="max-duration">Max Duration (min)</Label>
+                      <Input
+                        id="max-duration"
+                        type="number"
+                        min="0"
+                        value={filters.maxDuration}
+                        onChange={(e) => handleFilterChange("maxDuration", e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between pt-2">
+                    <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                      Clear All
+                    </Button>
+                  </div>
+                </div>
+              </PopoverContent>
+            </Popover>
+            
+            <Button 
+              variant="outline"
+              onClick={refreshCalls || fetchCalls}
+              disabled={loading}
+              size="sm"
+            >
+              Refresh Calls
+            </Button>
+          </div>
         </div>
+        
+        {/* Active filters */}
+        {activeFilters.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {activeFilters.map(filter => (
+              <Badge key={filter} variant="outline" className="px-2 py-1 flex items-center gap-1">
+                <span className="text-xs font-medium">{getFilterLabel(filter)}: {getFilterDisplayValue(filter)}</span>
+                <X 
+                  className="h-3 w-3 cursor-pointer" 
+                  onClick={() => clearFilter(filter)} 
+                />
+              </Badge>
+            ))}
+            
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={clearAllFilters}
+              className="text-xs ml-1"
+            >
+              Clear All
+            </Button>
+          </div>
+        )}
+        
+        {/* Results count */}
+        {activeFilters.length > 0 && (
+          <div className="text-sm text-gray-500 mt-2">
+            Showing {filteredCalls.length} of {calls.length} calls
+          </div>
+        )}
       </div>
       
       {error && (
@@ -366,7 +658,7 @@ const CallLogsTab = ({
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Call ID</TableHead>
+              <TableHead>From Number</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Duration</TableHead>
@@ -416,7 +708,7 @@ const CallLogsTab = ({
                     onClick={() => handleRowClick(call)}
                   >
                     <TableCell className="font-medium">
-                      {call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A"}
+                      {call.from_number ? call.from_number : (call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A")}
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
@@ -499,8 +791,14 @@ const CallLogsTab = ({
               <div className="mt-2">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
                   <div className="flex items-center gap-2">
+                    <span className="text-gray-500">From:</span>
+                    <span className="font-medium">
+                      {selectedCall.from_number || "Unknown"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
                     <span className="text-gray-500">Call ID:</span>
-                    <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded">{selectedCall.call_id}</span>
+                    <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded text-xs">{selectedCall.call_id}</span>
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Duration:</span>
