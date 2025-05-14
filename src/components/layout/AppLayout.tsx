@@ -1,8 +1,7 @@
 
 import { useState } from "react";
-import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, Phone, BarChart } from "lucide-react";
+import { LogOut, LayoutDashboard, Phone, BarChart, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -42,8 +41,9 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
       <div className="flex min-h-screen w-full bg-gradient-to-b from-purple-50 to-white">
         <Sidebar side="left" variant="sidebar" collapsible="icon">
           <SidebarHeader className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
-            <Header />
-            <SidebarTrigger />
+            <div className="flex items-center">
+              <SidebarTrigger />
+            </div>
           </SidebarHeader>
           
           <SidebarContent className="px-2">
@@ -116,6 +116,21 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
         </Sidebar>
         
         <SidebarInset className="p-6">
+          <div className="mb-8">
+            <div className="flex flex-col items-center justify-center">
+              <div className="flex items-center gap-3">
+                <div className="bg-purple-600 p-3 rounded-full">
+                  <Headphones className="h-6 w-6 text-white" />
+                </div>
+                <h1 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-indigo-600">
+                  Lisa - Voice Assistant
+                </h1>
+              </div>
+              <p className="text-gray-600 mt-2 text-center">
+                View and manage your voice assistant conversations
+              </p>
+            </div>
+          </div>
           {children}
         </SidebarInset>
       </div>
