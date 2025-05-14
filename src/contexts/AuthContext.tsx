@@ -9,7 +9,7 @@ interface AuthContextType {
   agentId: string;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  register: (email: string, password: string, agentId: string) => Promise<void>;
+  register: (email: string, password: string, newAgentId: string) => Promise<void>;
   userEmail: string | null;
   isLoading: boolean;
 }
@@ -95,9 +95,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string) => {
     try {
+      // Updated options to disable email confirmation
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin,
+          // Skip email verification
+          data: {
+            email_confirm: true
+          }
+        }
       });
       
       if (error) throw error;
@@ -116,10 +124,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
         if (profileError) throw profileError;
         
-        toast.success("Registration successful! Please check your email for verification.");
-        setIsAuthenticated(true);
-        setUserEmail(email);
-        setAgentId(newAgentId);
+        // Automatically sign in after registration
+        await login(email, password);
+        
+        toast.success("Registration successful! You're now logged in.");
       }
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
