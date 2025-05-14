@@ -40,6 +40,7 @@ const DashboardTab = ({
     avgDuration: "0:00",
     successfulCalls: 0,
     sentimentData: [],
+    appointmentStatusData: [],
     recentCalls: []
   });
 
@@ -109,6 +110,32 @@ const DashboardTab = ({
       { name: 'Neutral', value: sentimentCounts.neutral },
       { name: 'Negative', value: sentimentCounts.negative }
     ];
+    
+    // Calculate appointment status data for the chart
+    const appointmentStatusCounts: { [key: string]: number } = {
+      scheduled: 0,
+      completed: 0,
+      rejected: 0,
+      "in-process": 0,
+      "not-set": 0
+    };
+    
+    calls.forEach(call => {
+      const status = call.appointment_status?.toLowerCase() || 'not-set';
+      if (status in appointmentStatusCounts) {
+        appointmentStatusCounts[status]++;
+      } else {
+        appointmentStatusCounts['not-set']++;
+      }
+    });
+    
+    const appointmentStatusData = [
+      { name: 'Scheduled', value: appointmentStatusCounts.scheduled },
+      { name: 'Completed', value: appointmentStatusCounts.completed },
+      { name: 'Rejected', value: appointmentStatusCounts.rejected },
+      { name: 'In Process', value: appointmentStatusCounts["in-process"] },
+      { name: 'Not Set', value: appointmentStatusCounts["not-set"] }
+    ];
 
     // Get the 5 most recent calls
     const recentCalls = [...calls].sort((a, b) => {
@@ -122,6 +149,7 @@ const DashboardTab = ({
       avgDuration,
       successfulCalls,
       sentimentData,
+      appointmentStatusData,
       recentCalls
     });
   };
@@ -186,7 +214,8 @@ const DashboardTab = ({
     }
   };
 
-  const COLORS = ['#7c3aed', '#c4b5fd', '#ddd6fe'];
+  const COLORS = ['#7c3aed', '#c4b5fd', '#ddd6fe', '#8b5cf6', '#e5e7eb'];
+  const APPOINTMENT_COLORS = ['#eab308', '#22c55e', '#ef4444', '#3b82f6', '#9ca3af'];
 
   const formatDate = (timestamp: string) => {
     if (!timestamp) return "N/A";
@@ -332,47 +361,93 @@ const DashboardTab = ({
 
         <Card>
           <CardHeader>
-            <CardTitle>Recent Calls</CardTitle>
-            <CardDescription>Last 5 calls</CardDescription>
+            <CardTitle>Appointment Status</CardTitle>
+            <CardDescription>Distribution of appointment statuses</CardDescription>
           </CardHeader>
-          <CardContent>
-            {callStats.recentCalls && callStats.recentCalls.length > 0 ? (
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>ID</TableHead>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Duration</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {callStats.recentCalls.map((call: any) => (
-                      <TableRow key={call.id}>
-                        <TableCell className="font-medium">
-                          {call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A"}
-                        </TableCell>
-                        <TableCell>{formatDate(call.start_timestamp)}</TableCell>
-                        <TableCell>
-                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
-                            {call.call_status || "unknown"}
-                          </span>
-                        </TableCell>
-                        <TableCell>{formatDuration(call)}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+          <CardContent className="flex justify-center">
+            {callStats.appointmentStatusData && callStats.appointmentStatusData.some(item => item.value > 0) ? (
+              <ChartContainer config={chartConfig} className="h-[250px]">
+                <ResponsiveContainer>
+                  <PieChart>
+                    <Pie
+                      data={callStats.appointmentStatusData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      nameKey="name"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {callStats.appointmentStatusData.map((entry: any, index: number) => (
+                        <Cell key={`cell-${index}`} fill={APPOINTMENT_COLORS[index % APPOINTMENT_COLORS.length]} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              </ChartContainer>
             ) : (
               <div className="flex items-center justify-center h-[250px] text-gray-500">
-                No recent calls
+                No appointment status data available
               </div>
             )}
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-8">
+        <CardHeader>
+          <CardTitle>Recent Calls</CardTitle>
+          <CardDescription>Last 5 calls</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {callStats.recentCalls && callStats.recentCalls.length > 0 ? (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Duration</TableHead>
+                    <TableHead>Appointment Status</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {callStats.recentCalls.map((call: any) => (
+                    <TableRow key={call.id || call.call_id}>
+                      <TableCell className="font-medium">
+                        {call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A"}
+                      </TableCell>
+                      <TableCell>{formatDate(call.start_timestamp)}</TableCell>
+                      <TableCell>
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
+                          {call.call_status || "unknown"}
+                        </span>
+                      </TableCell>
+                      <TableCell>{formatDuration(call)}</TableCell>
+                      <TableCell>
+                        {call.appointment_status ? (
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.appointment_status)}`}>
+                            {call.appointment_status}
+                          </span>
+                        ) : (
+                          <span className="text-gray-400">Not set</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[250px] text-gray-500">
+              No recent calls
+            </div>
+          )}
+        </CardContent>
+      </Card>
       
       <div className="flex justify-center">
         <Button 
