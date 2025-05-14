@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,13 +43,11 @@ const DashboardTab = () => {
     meta: {
       errorMessage: "Failed to load dashboard data"
     },
-    onSettled: (data, error) => {
-      if (data) {
-        toast.success("Dashboard data loaded successfully");
-      }
-      if (error) {
-        toast.error("Failed to load dashboard data");
-      }
+    onSuccess: (data) => {
+      toast.success("Dashboard data loaded successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to load dashboard data");
     }
   });
 
@@ -104,15 +101,15 @@ const DashboardTab = () => {
             <Headphones className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.totalCalls || 0}</div>
+            <div className="text-2xl font-bold">{dashboardData?.totalCalls || 0}</div>
             <div className="flex items-center mt-1">
-              {dashboardData.callTrend > 0 ? (
+              {dashboardData?.callTrend > 0 ? (
                 <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
               ) : (
                 <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
               )}
-              <p className={`text-xs ${dashboardData.callTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData.callTrend || 0)}% from last week
+              <p className={`text-xs ${dashboardData?.callTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {Math.abs(dashboardData?.callTrend || 0)}% from last week
               </p>
             </div>
           </CardContent>
@@ -124,15 +121,15 @@ const DashboardTab = () => {
             <Clock className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.avgDuration || "0:00"}</div>
+            <div className="text-2xl font-bold">{dashboardData?.avgDuration || "0:00"}</div>
             <div className="flex items-center mt-1">
-              {dashboardData.durationTrend > 0 ? (
+              {dashboardData?.durationTrend > 0 ? (
                 <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
               ) : (
                 <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
               )}
-              <p className={`text-xs ${dashboardData.durationTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData.durationTrend || 0)}% from last week
+              <p className={`text-xs ${dashboardData?.durationTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {Math.abs(dashboardData?.durationTrend || 0)}% from last week
               </p>
             </div>
           </CardContent>
@@ -144,15 +141,15 @@ const DashboardTab = () => {
             <User className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData.uniqueCallers || 0}</div>
+            <div className="text-2xl font-bold">{dashboardData?.uniqueCallers || 0}</div>
             <div className="flex items-center mt-1">
-              {dashboardData.callersTrend > 0 ? (
+              {dashboardData?.callersTrend > 0 ? (
                 <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
               ) : (
                 <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
               )}
-              <p className={`text-xs ${dashboardData.callersTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData.callersTrend || 0)}% from last week
+              <p className={`text-xs ${dashboardData?.callersTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
+                {Math.abs(dashboardData?.callersTrend || 0)}% from last week
               </p>
             </div>
           </CardContent>
@@ -166,10 +163,10 @@ const DashboardTab = () => {
             <CardDescription>Call volume over the past week</CardDescription>
           </CardHeader>
           <CardContent>
-            {dashboardData.recentActivity && dashboardData.recentActivity.length > 0 ? (
+            {dashboardData?.recentActivity && dashboardData?.recentActivity.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[250px]">
                 <ResponsiveContainer>
-                  <LineChart data={dashboardData.recentActivity}>
+                  <LineChart data={dashboardData?.recentActivity}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="day" />
                     <YAxis />
@@ -200,12 +197,12 @@ const DashboardTab = () => {
             <CardDescription>By category</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            {dashboardData.callDistribution && dashboardData.callDistribution.length > 0 ? (
+            {dashboardData?.callDistribution && dashboardData?.callDistribution.length > 0 ? (
               <ChartContainer config={chartConfig} className="h-[250px]">
                 <ResponsiveContainer>
                   <PieChart>
                     <Pie
-                      data={dashboardData.callDistribution}
+                      data={dashboardData?.callDistribution}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -215,7 +212,7 @@ const DashboardTab = () => {
                       nameKey="name"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {dashboardData.callDistribution.map((entry: any, index: number) => (
+                      {dashboardData?.callDistribution.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
@@ -256,4 +253,3 @@ const DashboardTab = () => {
 };
 
 export default DashboardTab;
-
