@@ -17,6 +17,11 @@ const Index = () => {
   const apiUrl = 'https://api.retellai.com/v2/list-calls';
 
   const fetchCalls = async () => {
+    if (!agentId) {
+      toast.error("No agent ID found for your account");
+      return;
+    }
+    
     setLoading(true);
     setError(null);
     
@@ -55,9 +60,8 @@ const Index = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    toast.success("You have been logged out");
+  const handleLogout = async () => {
+    await logout();
   };
 
   return (

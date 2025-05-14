@@ -16,51 +16,61 @@ const Login = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [agentId, setAgentId] = useState("");
   const [activeTab, setActiveTab] = useState("login");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
+    
     if (!email || !password) {
       toast.error("Please fill in all fields");
+      setIsLoading(false);
       return;
     }
 
-    // In a real app, this would validate against a database
-    // For now we'll just check if there's a stored agent ID for this email
-    const storedAgentId = localStorage.getItem("agentId");
-    
-    if (storedAgentId) {
-      login(email, password, storedAgentId);
-      toast.success("Login successful!");
+    try {
+      await login(email, password);
       navigate("/");
-    } else {
-      toast.error("Invalid credentials. Please register first.");
+    } catch (error) {
+      // Error toast is displayed by the context
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading(true);
     
     if (!email || !password || !confirmPassword || !agentId) {
       toast.error("Please fill in all fields");
+      setIsLoading(false);
       return;
     }
 
     if (password !== confirmPassword) {
       toast.error("Passwords do not match");
+      setIsLoading(false);
       return;
     }
 
     if (!agentId.startsWith("agent_")) {
       toast.error("Agent ID must start with 'agent_'");
+      setIsLoading(false);
       return;
     }
 
-    login(email, password, agentId);
-    toast.success("Registration successful!");
-    navigate("/");
+    try {
+      await register(email, password, agentId);
+      navigate("/");
+    } catch (error) {
+      // Error toast is displayed by the context
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -108,9 +118,18 @@ const Login = () => {
                       />
                     </div>
                   </div>
-                  <Button type="submit" className="w-full">
-                    <LogIn className="mr-2 h-4 w-4" />
-                    Sign In
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">↻</span>
+                        Signing In...
+                      </>
+                    ) : (
+                      <>
+                        <LogIn className="mr-2 h-4 w-4" />
+                        Sign In
+                      </>
+                    )}
                   </Button>
                 </form>
               </TabsContent>
@@ -174,9 +193,18 @@ const Login = () => {
                     </div>
                     <p className="text-xs text-gray-500">Enter your Retell AI agent ID (starts with 'agent_')</p>
                   </div>
-                  <Button type="submit" className="w-full">
-                    <User className="mr-2 h-4 w-4" />
-                    Create Account
+                  <Button type="submit" className="w-full" disabled={isLoading}>
+                    {isLoading ? (
+                      <>
+                        <span className="animate-spin mr-2">↻</span>
+                        Creating Account...
+                      </>
+                    ) : (
+                      <>
+                        <User className="mr-2 h-4 w-4" />
+                        Create Account
+                      </>
+                    )}
                   </Button>
                 </form>
               </TabsContent>
