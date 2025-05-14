@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import {
@@ -9,7 +8,7 @@ import {
   Construction,
   Headphones,
   Zap,
-  Robot,
+  Bot,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -214,7 +213,7 @@ const Landing = () => {
               { 
                 title: "AI Integration", 
                 description: "Seamless connection with your existing tools", 
-                icon: <Robot className="w-8 h-8" /> 
+                icon: <Bot className="w-8 h-8" /> 
               },
             ].map((item, i) => (
               <Card 
@@ -424,7 +423,7 @@ const Landing = () => {
               { 
                 title: "Built on GPT + proprietary ops engine", 
                 description: "Lisa combines advanced language models with specialized operations logic for field service businesses.",
-                icon: <Robot className="w-8 h-8 text-purple-400" />
+                icon: <Bot className="w-8 h-8 text-purple-400" />
               },
               { 
                 title: "Integrates with your existing tools", 
