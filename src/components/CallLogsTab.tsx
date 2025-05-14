@@ -1,5 +1,6 @@
+
 import { useEffect, useState } from "react";
-import { Search, Info, Edit, Calendar } from "lucide-react";
+import { Search, Info, Edit, Calendar, Play, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
@@ -50,6 +51,8 @@ const CallLogsTab = () => {
     appointment_time: '',
     notes: ''
   });
+  const [playingAudio, setPlayingAudio] = useState<boolean>(false);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
   const fetchCalls = async () => {
     if (!agentId) {
@@ -260,6 +263,11 @@ const CallLogsTab = () => {
   };
 
   const getSummary = (call: any) => {
+    // First check if we have a call_analysis with call_summary
+    if (call.call_analysis?.call_summary) {
+      return call.call_analysis.call_summary;
+    }
+    
     if (call.summary) return call.summary;
     
     if (call.transcript) {
@@ -270,6 +278,49 @@ const CallLogsTab = () => {
     
     return "No summary available for this call.";
   };
+
+  // Function to handle audio playback
+  const toggleAudio = () => {
+    if (!selectedCall?.recording_url || !audioElement) return;
+    
+    if (playingAudio) {
+      audioElement.pause();
+    } else {
+      audioElement.play();
+    }
+    
+    setPlayingAudio(!playingAudio);
+  };
+
+  // Initialize audio element when dialog opens with a call that has recording
+  useEffect(() => {
+    if (dialogOpen && selectedCall?.recording_url) {
+      const audio = new Audio(selectedCall.recording_url);
+      
+      audio.addEventListener('ended', () => {
+        setPlayingAudio(false);
+      });
+      
+      audio.addEventListener('pause', () => {
+        setPlayingAudio(false);
+      });
+      
+      audio.addEventListener('play', () => {
+        setPlayingAudio(true);
+      });
+      
+      setAudioElement(audio);
+      
+      return () => {
+        audio.pause();
+        audio.removeEventListener('ended', () => setPlayingAudio(false));
+        audio.removeEventListener('pause', () => setPlayingAudio(false));
+        audio.removeEventListener('play', () => setPlayingAudio(true));
+        setAudioElement(null);
+        setPlayingAudio(false);
+      };
+    }
+  }, [dialogOpen, selectedCall]);
 
   return (
     <div>
@@ -471,6 +522,46 @@ const CallLogsTab = () => {
                   
                   <TabsContent value="summary" className="overflow-auto max-h-[50vh] px-1">
                     <div className="space-y-4">
+                      {selectedCall.recording_url && (
+                        <div className="bg-gray-50 p-4 rounded-md">
+                          <h3 className="font-medium mb-3 text-gray-700 flex items-center gap-2">
+                            <Headphones className="h-4 w-4 text-purple-500" />
+                            Audio Recording
+                          </h3>
+                          <div className="flex flex-col gap-3">
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                variant="outline" 
+                                size="sm" 
+                                className="flex items-center gap-1"
+                                onClick={toggleAudio}
+                              >
+                                {playingAudio ? (
+                                  <>
+                                    <span>Pause</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Play className="h-3 w-3" />
+                                    <span>Play</span>
+                                  </>
+                                )}
+                              </Button>
+                              <div className="text-sm text-gray-500">
+                                {formatDuration(selectedCall)} duration
+                              </div>
+                            </div>
+                            <audio 
+                              controls 
+                              src={selectedCall.recording_url}
+                              className="w-full rounded-md shadow-sm"
+                            >
+                              Your browser does not support the audio element.
+                            </audio>
+                          </div>
+                        </div>
+                      )}
+                      
                       <div className="bg-gray-50 p-4 rounded-md">
                         <h3 className="font-medium mb-2 text-gray-700">Call Summary</h3>
                         <p className="text-gray-600">{getSummary(selectedCall)}</p>
@@ -496,7 +587,16 @@ const CallLogsTab = () => {
                     {selectedCall.transcript ? (
                       <div className="bg-gray-50 p-4 rounded-md">
                         <h3 className="font-medium mb-2 text-gray-700">Transcript</h3>
-                        <p className="text-gray-600 whitespace-pre-line">{selectedCall.transcript}</p>
+                        <div className="space-y-3">
+                          {selectedCall.transcript.split(/(?<=[.!?])\s+/).filter((line: string) => line.trim().length > 0).map((line: string, index: number) => (
+                            <div key={index} className="p-2 rounded hover:bg-gray-100 transition-colors">
+                              <div className="flex gap-2">
+                                <span className="text-gray-400 text-xs mt-1">{index + 1}.</span>
+                                <p className="text-gray-700">{line.trim()}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     ) : (
                       <div className="text-center py-6 text-gray-500">

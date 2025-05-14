@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -114,9 +115,10 @@ const DashboardTab = () => {
       };
 
       mergedCalls.forEach(call => {
-        const sentiment = call.user_sentiment?.toLowerCase() || 
-                         call.call_analysis?.user_sentiment?.toLowerCase() || 
-                         'neutral';
+        // First check call_analysis.user_sentiment, then fall back to call.user_sentiment
+        const sentiment = call.call_analysis?.user_sentiment?.toLowerCase() || 
+                          call.user_sentiment?.toLowerCase() || 
+                          'neutral';
         if (['positive', 'neutral', 'negative'].includes(sentiment)) {
           sentimentCounts[sentiment]++;
         } else {
