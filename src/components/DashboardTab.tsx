@@ -1,6 +1,4 @@
-
 import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -281,9 +279,6 @@ const DashboardTab = ({
     return (
       <div className="flex flex-col items-center justify-center h-64">
         <div className="text-red-500 mb-4">{error}</div>
-        <Button onClick={() => fetchDashboardData()} variant="outline">
-          Retry
-        </Button>
       </div>
     );
   }
@@ -448,26 +443,6 @@ const DashboardTab = ({
           )}
         </CardContent>
       </Card>
-      
-      <div className="flex justify-center">
-        <Button 
-          onClick={() => refreshCalls ? refreshCalls() : fetchDashboardData()}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-full shadow-lg transition-all flex items-center gap-2"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading...</span>
-            </>
-          ) : (
-            <>
-              <Calendar className="h-4 w-4" />
-              <span>Refresh Dashboard</span>
-            </>
-          )}
-        </Button>
-      </div>
     </div>
   );
 };

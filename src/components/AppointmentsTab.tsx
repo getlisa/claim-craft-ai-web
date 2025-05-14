@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
 
@@ -45,7 +44,6 @@ const AppointmentsTab = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState('all');
-  const [callerFilter, setCallerFilter] = useState('');
   const { agentId } = useAuth();
 
   // Directly fetch appointments from database to ensure data is visible
@@ -83,8 +81,9 @@ const AppointmentsTab = ({
         
         setAppointments(sorted);
         setFilteredAppointments(sorted);
-        toast.success(`Loaded ${sorted.length} appointments`);
+        console.log("Loaded appointments:", sorted);
       } else {
+        console.log("No appointments found in database");
         setAppointments([]);
         setFilteredAppointments([]);
       }
@@ -99,9 +98,10 @@ const AppointmentsTab = ({
 
   // Process calls data to extract only scheduled appointments
   useEffect(() => {
-    if (initialCalls.length > 0) {
+    if (initialCalls && initialCalls.length > 0) {
+      console.log("Processing initialCalls:", initialCalls);
       const scheduledAppointments = initialCalls.filter(call => 
-        call.appointment_status === 'scheduled' && call.appointment_date
+        call.appointment_date
       ).sort((a, b) => {
         // Sort by appointment date, most recent first
         const dateA = new Date(`${a.appointment_date} ${a.appointment_time || '00:00'}`).getTime();
@@ -109,11 +109,13 @@ const AppointmentsTab = ({
         return dateA - dateB; // Ascending order (upcoming first)
       });
       
+      console.log("Filtered appointments:", scheduledAppointments);
       setAppointments(scheduledAppointments);
       setFilteredAppointments(scheduledAppointments);
       setIsLoading(false);
-    } else if (dataLoaded && !initialLoading) {
+    } else if (dataLoaded) {
       // If no initial calls but data is loaded, fetch directly
+      console.log("No initialCalls, fetching from database directly");
       fetchAppointments();
     } else {
       setIsLoading(initialLoading);
@@ -197,15 +199,8 @@ const AppointmentsTab = ({
       });
     }
     
-    // Apply caller filter
-    if (callerFilter) {
-      result = result.filter(appointment => 
-        appointment.caller_phone_number && appointment.caller_phone_number.includes(callerFilter)
-      );
-    }
-    
     setFilteredAppointments(result);
-  }, [appointments, searchQuery, statusFilter, dateFilter, timeFilter, callerFilter]);
+  }, [appointments, searchQuery, statusFilter, dateFilter, timeFilter]);
 
   const getAppointmentStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -232,14 +227,6 @@ const AppointmentsTab = ({
       });
     } else {
       toast.info(`No recording available for call ${callId}`);
-    }
-  };
-
-  const handleRefresh = async () => {
-    if (refreshCalls) {
-      await refreshCalls();
-    } else {
-      await fetchAppointments();
     }
   };
 
@@ -315,7 +302,6 @@ const AppointmentsTab = ({
                 setStatusFilter('all');
                 setDateFilter('all');
                 setTimeFilter('all');
-                setCallerFilter('');
               }}
             >
               Clear Filters
@@ -339,13 +325,6 @@ const AppointmentsTab = ({
                 ? "No appointments match your current filters." 
                 : "You don't have any scheduled appointments yet."}
             </p>
-            <Button 
-              onClick={handleRefresh}
-              className="mt-4"
-              variant="outline"
-            >
-              Refresh Data
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -399,26 +378,6 @@ const AppointmentsTab = ({
           </CardContent>
         </Card>
       )}
-
-      <div className="flex justify-center mt-6">
-        <Button 
-          onClick={handleRefresh}
-          className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-full shadow-lg transition-all flex items-center gap-2"
-          disabled={isLoading}
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              <span>Loading...</span>
-            </>
-          ) : (
-            <>
-              <Calendar className="h-4 w-4" />
-              <span>Refresh Appointments</span>
-            </>
-          )}
-        </Button>
-      </div>
     </div>
   );
 };
