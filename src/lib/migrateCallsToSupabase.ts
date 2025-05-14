@@ -15,6 +15,10 @@ export interface CallData {
   appointment_date?: string;
   appointment_time?: string;
   notes?: string;
+  call_analysis?: {
+    user_sentiment?: string;
+    call_successful?: boolean;
+  };
 }
 
 export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
