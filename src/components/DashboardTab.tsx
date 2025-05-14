@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -138,7 +139,7 @@ const DashboardTab = ({
       // Fetch calls directly from API
       const apiCalls = await fetchCallsFromApi(agentId);
       
-      // Then fetch ALL calls from Supabase - not just ones with edits
+      // Then fetch ALL calls from Supabase
       const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
@@ -150,7 +151,7 @@ const DashboardTab = ({
       const editedCallsMap = new Map();
       if (dbCalls && dbCalls.length > 0) {
         dbCalls.forEach(dbCall => {
-          // Include ALL calls from database, not just ones with specific edits
+          // Include ALL calls from database
           editedCallsMap.set(dbCall.call_id, dbCall);
         });
       }

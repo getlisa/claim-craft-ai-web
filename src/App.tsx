@@ -9,6 +9,7 @@ import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 import { Loader2 } from "lucide-react";
+import { Session } from "@supabase/supabase-js";
 
 const queryClient = new QueryClient();
 
@@ -50,9 +51,13 @@ const AppRoutes = () => {
   );
 };
 
-const App = () => (
+interface AppProps {
+  initialSession?: Session | null;
+}
+
+const App = ({ initialSession }: AppProps) => (
   <QueryClientProvider client={queryClient}>
-    <AuthProvider>
+    <AuthProvider initialSession={initialSession}>
       <TooltipProvider>
         <Toaster />
         <Sonner />

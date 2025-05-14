@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from "react";
 import { Search, Info, Edit, Calendar, Play, Pause, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -89,7 +90,7 @@ const CallLogsTab = ({
       // First, fetch calls directly from API
       const apiCalls = await fetchCallsFromApi(agentId);
       
-      // Then fetch ALL calls from Supabase - not just ones with edits
+      // Then fetch ALL calls from Supabase
       const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
@@ -97,28 +98,27 @@ const CallLogsTab = ({
 
       if (dbError) throw dbError;
       
-      // Create a map of edited calls by call_id for fast lookup
-      const editedCallsMap = new Map();
+      // Create a map of database calls by call_id
+      const dbCallsMap = new Map();
       if (dbCalls && dbCalls.length > 0) {
         dbCalls.forEach(dbCall => {
-          // Include ALL calls from database
-          editedCallsMap.set(dbCall.call_id, dbCall);
+          dbCallsMap.set(dbCall.call_id, dbCall);
         });
       }
       
-      // Merge API calls with edited data from DB
+      // Merge API calls with database data
       const mergedCalls = apiCalls.map(apiCall => {
-        const editedCall = editedCallsMap.get(apiCall.call_id);
-        if (editedCall) {
-          // Keep API data but override with ALL fields from database
+        const dbCall = dbCallsMap.get(apiCall.call_id);
+        if (dbCall) {
+          // Merge API call with database data, preferring database values
           return {
             ...apiCall,
-            appointment_status: editedCall.appointment_status || apiCall.appointment_status,
-            appointment_date: editedCall.appointment_date || apiCall.appointment_date,
-            appointment_time: editedCall.appointment_time || apiCall.appointment_time,
-            notes: editedCall.notes || apiCall.notes,
+            appointment_status: dbCall.appointment_status || apiCall.appointment_status,
+            appointment_date: dbCall.appointment_date || apiCall.appointment_date,
+            appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+            notes: dbCall.notes || apiCall.notes,
             // Store the database ID for future updates
-            id: editedCall.id
+            id: dbCall.id
           };
         }
         return apiCall;
