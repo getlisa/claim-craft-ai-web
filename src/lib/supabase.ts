@@ -16,6 +16,5 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     detectSessionInUrl: true,
     // Use the dynamic site URL instead of hardcoding localhost
     flowType: 'pkce',
-    redirectTo: getSiteUrl() + '/login',
   },
 });
