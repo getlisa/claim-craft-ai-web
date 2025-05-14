@@ -22,6 +22,24 @@ export interface CallData {
   id?: number; // Database ID if available
 }
 
+// Helper function to ensure timestamps are in ISO format
+const formatTimestamp = (timestamp: string | number | undefined): string | undefined => {
+  if (!timestamp) return undefined;
+  
+  try {
+    // If timestamp is a number (Unix timestamp in milliseconds), convert to ISO string
+    if (typeof timestamp === 'number' || !isNaN(Number(timestamp))) {
+      return new Date(Number(timestamp)).toISOString();
+    }
+    
+    // If it's already a string in ISO format or other valid date format, parse and convert to ISO
+    return new Date(timestamp).toISOString();
+  } catch (error) {
+    console.error("Error formatting timestamp:", error);
+    return undefined;
+  }
+};
+
 export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
   try {
     // Check if call already exists
@@ -37,11 +55,12 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
     }
     
     // Create a clean call data object with only the fields that exist in our database schema
+    // and properly format the timestamps
     const callData = {
       call_id: call.call_id,
       call_status: call.call_status,
-      start_timestamp: call.start_timestamp,
-      end_timestamp: call.end_timestamp,
+      start_timestamp: formatTimestamp(call.start_timestamp),
+      end_timestamp: formatTimestamp(call.end_timestamp),
       agent_id: call.agent_id,
       transcript: call.transcript,
       user_sentiment: call.call_analysis?.user_sentiment || call.user_sentiment,
