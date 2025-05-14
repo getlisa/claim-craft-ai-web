@@ -56,6 +56,7 @@ const Dashboard = () => {
             appointment_date: dbCall.appointment_date || apiCall.appointment_date,
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             notes: dbCall.notes || apiCall.notes,
+            from_number: dbCall.from_number || apiCall.from_number || "",
             id: dbCall.id
           };
         }
