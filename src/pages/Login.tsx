@@ -1,77 +1,44 @@
 
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useAuth } from "@/contexts/AuthContext";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Lock, LogIn, Mail, User, Key } from "lucide-react";
-import { toast } from "sonner";
+import LoginForm from "@/components/LoginForm";
+import RegisterForm from "@/components/RegisterForm";
+import OtpVerification from "@/components/OtpVerification";
+import { useNavigate } from "react-router-dom";
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [agentId, setAgentId] = useState("");
   const [activeTab, setActiveTab] = useState("login");
-  const [isLoading, setIsLoading] = useState(false);
-
-  const { login, register } = useAuth();
+  const [verificationEmail, setVerificationEmail] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    if (!email || !password) {
-      toast.error("Please fill in all fields");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      await login(email, password);
-      navigate("/");
-    } catch (error) {
-      // Error toast is displayed by the context
-    } finally {
-      setIsLoading(false);
-    }
+  const handleRegisterSuccess = (email: string) => {
+    setVerificationEmail(email);
   };
 
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    
-    if (!email || !password || !confirmPassword || !agentId) {
-      toast.error("Please fill in all fields");
-      setIsLoading(false);
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
-      setIsLoading(false);
-      return;
-    }
-
-    if (!agentId.startsWith("agent_")) {
-      toast.error("Agent ID must start with 'agent_'");
-      setIsLoading(false);
-      return;
-    }
-
-    try {
-      await register(email, password, agentId);
-      navigate("/");
-    } catch (error) {
-      // Error toast is displayed by the context
-    } finally {
-      setIsLoading(false);
-    }
+  const handleVerificationSuccess = () => {
+    navigate("/");
   };
+
+  const handleBackToLogin = () => {
+    setVerificationEmail(null);
+    setActiveTab("login");
+  };
+
+  // Show OTP verification if a verification email exists
+  if (verificationEmail) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
+        <div className="w-full max-w-md">
+          <OtpVerification 
+            email={verificationEmail} 
+            onVerificationSuccess={handleVerificationSuccess}
+            onBack={handleBackToLogin}
+          />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-b from-purple-50 to-white p-4">
@@ -89,124 +56,11 @@ const Login = () => {
               </TabsList>
               
               <TabsContent value="login">
-                <form onSubmit={handleLogin} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="email"
-                        type="email"
-                        placeholder="name@example.com"
-                        className="pl-10"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <span className="animate-spin mr-2">↻</span>
-                        Signing In...
-                      </>
-                    ) : (
-                      <>
-                        <LogIn className="mr-2 h-4 w-4" />
-                        Sign In
-                      </>
-                    )}
-                  </Button>
-                </form>
+                <LoginForm />
               </TabsContent>
               
               <TabsContent value="register">
-                <form onSubmit={handleRegister} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="register-email">Email</Label>
-                    <div className="relative">
-                      <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-email"
-                        type="email"
-                        placeholder="name@example.com"
-                        className="pl-10"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="register-password">Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="register-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="confirm-password">Confirm Password</Label>
-                    <div className="relative">
-                      <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="confirm-password"
-                        type="password"
-                        placeholder="••••••••"
-                        className="pl-10"
-                        value={confirmPassword}
-                        onChange={(e) => setConfirmPassword(e.target.value)}
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="agent-id">Agent ID</Label>
-                    <div className="relative">
-                      <Key className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-                      <Input
-                        id="agent-id"
-                        type="text"
-                        placeholder="agent_..."
-                        className="pl-10"
-                        value={agentId}
-                        onChange={(e) => setAgentId(e.target.value)}
-                      />
-                    </div>
-                    <p className="text-xs text-gray-500">Enter your Agent ID (starts with 'agent_')</p>
-                  </div>
-                  <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? (
-                      <>
-                        <span className="animate-spin mr-2">↻</span>
-                        Creating Account...
-                      </>
-                    ) : (
-                      <>
-                        <User className="mr-2 h-4 w-4" />
-                        Create Account
-                      </>
-                    )}
-                  </Button>
-                </form>
+                <RegisterForm onRegisterSuccess={handleRegisterSuccess} />
               </TabsContent>
             </Tabs>
           </CardContent>

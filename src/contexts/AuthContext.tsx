@@ -10,6 +10,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   register: (email: string, password: string, newAgentId: string) => Promise<void>;
+  verifyOTP: (email: string, token: string) => Promise<boolean>;
+  resendOTP: (email: string) => Promise<void>;
   userEmail: string | null;
   isLoading: boolean;
 }
@@ -20,6 +22,8 @@ const AuthContext = createContext<AuthContextType>({
   login: async () => {},
   logout: async () => {},
   register: async () => {},
+  verifyOTP: async () => false,
+  resendOTP: async () => {},
   userEmail: null,
   isLoading: true,
 });
@@ -95,15 +99,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string) => {
     try {
-      // First register the user
+      // Register the user with email confirmation required
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          data: { 
-            email_confirmed: true 
-          }
-        }
       });
       
       if (error) throw error;
@@ -122,25 +121,72 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           
         if (profileError) throw profileError;
         
-        // Sign in explicitly after successful registration
-        const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-          email,
-          password
-        });
+        // Set temporary email for verification process
+        setUserEmail(email);
         
-        if (signInError) throw signInError;
-        
-        // Update context state
-        if (signInData.user) {
-          setIsAuthenticated(true);
-          setUserEmail(email);
-          setAgentId(newAgentId);
-          toast.success("Registration successful! You're now logged in.");
-        }
+        toast.success("Registration successful! Please check your email for verification code.");
+        return;
       }
     } catch (error: any) {
       toast.error(error.message || "Registration failed");
       throw error;
+    }
+  };
+
+  const verifyOTP = async (email: string, token: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token,
+        type: 'signup'
+      });
+      
+      if (error) {
+        toast.error("Invalid or expired verification code");
+        throw error;
+      }
+      
+      if (data.user) {
+        // Get the agent ID from the profiles table
+        const { data: profile, error: profileError } = await supabase
+          .from('user_profiles')
+          .select('agent_id')
+          .eq('user_id', data.user.id)
+          .single();
+          
+        if (profileError) throw profileError;
+        
+        // Update context state
+        setIsAuthenticated(true);
+        setUserEmail(email);
+        
+        if (profile?.agent_id) {
+          setAgentId(profile.agent_id);
+        }
+        
+        toast.success("Email verified! You are now logged in.");
+        return true;
+      }
+      
+      return false;
+    } catch (error: any) {
+      console.error("OTP verification error:", error);
+      return false;
+    }
+  };
+
+  const resendOTP = async (email: string) => {
+    try {
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email
+      });
+      
+      if (error) throw error;
+      
+      toast.success("Verification code has been resent to your email");
+    } catch (error: any) {
+      toast.error(error.message || "Failed to resend verification code");
     }
   };
 
@@ -199,6 +245,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       login, 
       logout, 
       register,
+      verifyOTP,
+      resendOTP,
       userEmail,
       isLoading
     }}>
