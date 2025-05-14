@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,6 +47,19 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
         return "bg-blue-100 text-blue-800 border-blue-200";
       case "failed":
         return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getSentimentColor = (sentiment: string | undefined) => {
+    switch (sentiment?.toLowerCase()) {
+      case "positive":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "negative":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "neutral":
+        return "bg-blue-100 text-blue-800 border-blue-200";
       default:
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
@@ -127,6 +140,11 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
 
   // Generate a summary if one doesn't exist
   const getSummary = () => {
+    // First check if we have a call_analysis with call_summary
+    if (call.call_analysis?.call_summary) {
+      return call.call_analysis.call_summary;
+    }
+    
     if (call.summary) return call.summary;
     
     if (call.transcript) {
@@ -161,6 +179,48 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
         </CardHeader>
         
         <CardContent className="pt-4">
+          {/* Call Summary Preview */}
+          {getSummary() && (
+            <div className="mb-4 text-sm text-gray-600 bg-gray-50 p-3 rounded-md">
+              <p className="line-clamp-2">{getSummary()}</p>
+            </div>
+          )}
+          
+          {/* Call Analysis */}
+          {call.call_analysis && (
+            <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {call.call_analysis.user_sentiment && (
+                <div className="flex items-center gap-2">
+                  {call.call_analysis.user_sentiment?.toLowerCase() === 'positive' ? 
+                    <ThumbsUp className="w-4 h-4 text-green-500" /> : 
+                    (call.call_analysis.user_sentiment?.toLowerCase() === 'negative' ? 
+                      <ThumbsDown className="w-4 h-4 text-red-500" /> : 
+                      <Info className="w-4 h-4 text-blue-500" />)
+                  }
+                  <span className="text-sm text-gray-500">Sentiment:</span>
+                  <Badge className={getSentimentColor(call.call_analysis.user_sentiment)}>
+                    {call.call_analysis.user_sentiment}
+                  </Badge>
+                </div>
+              )}
+              
+              {typeof call.call_analysis.call_successful === 'boolean' && (
+                <div className="flex items-center gap-2">
+                  {call.call_analysis.call_successful ? 
+                    <CheckCircle className="w-4 h-4 text-green-500" /> : 
+                    <XCircle className="w-4 h-4 text-red-500" />
+                  }
+                  <span className="text-sm text-gray-500">Outcome:</span>
+                  <Badge className={call.call_analysis.call_successful ? 
+                    "bg-green-100 text-green-800 border-green-200" : 
+                    "bg-red-100 text-red-800 border-red-200"}>
+                    {call.call_analysis.call_successful ? "Successful" : "Unsuccessful"}
+                  </Badge>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm mb-3">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4 text-gray-400" />
@@ -249,6 +309,52 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
                           <p className="text-gray-600">{getSummary()}</p>
                         </div>
                         
+                        {/* Call Analysis Details */}
+                        {call.call_analysis && (
+                          <div className="bg-gray-50 p-4 rounded-md">
+                            <h3 className="font-medium mb-3 text-gray-700">Call Analysis</h3>
+                            <div className="space-y-3">
+                              {call.call_analysis.user_sentiment && (
+                                <div className="flex items-center gap-2">
+                                  {call.call_analysis.user_sentiment?.toLowerCase() === 'positive' ? 
+                                    <ThumbsUp className="w-4 h-4 text-green-500" /> : 
+                                    (call.call_analysis.user_sentiment?.toLowerCase() === 'negative' ? 
+                                      <ThumbsDown className="w-4 h-4 text-red-500" /> : 
+                                      <Info className="w-4 h-4 text-blue-500" />)
+                                  }
+                                  <span className="text-sm text-gray-600">User Sentiment:</span>
+                                  <Badge className={getSentimentColor(call.call_analysis.user_sentiment)}>
+                                    {call.call_analysis.user_sentiment}
+                                  </Badge>
+                                </div>
+                              )}
+                              
+                              {typeof call.call_analysis.call_successful === 'boolean' && (
+                                <div className="flex items-center gap-2">
+                                  {call.call_analysis.call_successful ? 
+                                    <CheckCircle className="w-4 h-4 text-green-500" /> : 
+                                    <XCircle className="w-4 h-4 text-red-500" />
+                                  }
+                                  <span className="text-sm text-gray-600">Call Outcome:</span>
+                                  <span className="text-sm font-medium">
+                                    {call.call_analysis.call_successful ? "Successful" : "Unsuccessful"}
+                                  </span>
+                                </div>
+                              )}
+                              
+                              {typeof call.call_analysis.in_voicemail === 'boolean' && (
+                                <div className="flex items-center gap-2">
+                                  <Info className="w-4 h-4 text-gray-400" />
+                                  <span className="text-sm text-gray-600">Voicemail:</span>
+                                  <span className="text-sm font-medium">
+                                    {call.call_analysis.in_voicemail ? "Yes" : "No"}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                        
                         <div>
                           <h3 className="font-medium mb-2 text-gray-700">Call Details</h3>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4 text-sm">
@@ -333,6 +439,49 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
           
           {isExpanded && (
             <div className="mt-4 space-y-4 border-t pt-4">
+              {/* Call Analysis Section for expanded view */}
+              {call.call_analysis && (
+                <div>
+                  <h4 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
+                    <Info className="w-4 h-4 text-purple-500" />
+                    Call Analysis
+                  </h4>
+                  <div className="bg-gray-50 p-3 rounded-md">
+                    {call.call_analysis.call_summary && (
+                      <div className="mb-3">
+                        <span className="text-sm font-medium text-gray-600">Summary:</span>
+                        <p className="text-sm text-gray-600 mt-1">{call.call_analysis.call_summary}</p>
+                      </div>
+                    )}
+                    
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                      {call.call_analysis.user_sentiment && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">Sentiment:</span>
+                          <Badge className={getSentimentColor(call.call_analysis.user_sentiment)}>
+                            {call.call_analysis.user_sentiment}
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {typeof call.call_analysis.call_successful === 'boolean' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">Outcome:</span>
+                          <span>{call.call_analysis.call_successful ? "Successful" : "Unsuccessful"}</span>
+                        </div>
+                      )}
+                      
+                      {typeof call.call_analysis.in_voicemail === 'boolean' && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-gray-500">Voicemail:</span>
+                          <span>{call.call_analysis.in_voicemail ? "Yes" : "No"}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {call.transcript && (
                 <div>
                   <h4 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
