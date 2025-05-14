@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { LogOut, LayoutDashboard, Phone, BarChart, Headphones, Menu } from "lucide-react";
+import { LogOut, LayoutDashboard, Phone, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { 
@@ -40,7 +40,7 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
     return email.charAt(0).toUpperCase();
   };
 
-  // Menu items configuration
+  // Menu items configuration - removed the Analysis tab
   const menuItems = [
     {
       id: "dashboard",
@@ -51,12 +51,7 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
       id: "call-logs",
       label: "Call Logs",
       icon: <Phone className="h-5 w-5" />,
-    },
-    {
-      id: "analysis",
-      label: "Analysis",
-      icon: <BarChart className="h-5 w-5" />,
-    },
+    }
   ];
 
   // Effect to close mobile menu when switching tabs
