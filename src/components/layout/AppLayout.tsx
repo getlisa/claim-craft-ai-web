@@ -2,8 +2,9 @@
 import { useState } from "react";
 import Header from "@/components/Header";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, LayoutDashboard, Phone, BarChart } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { 
   SidebarProvider, 
   Sidebar, 
@@ -25,10 +26,15 @@ interface AppLayoutProps {
 }
 
 const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
-  const { agentId, userEmail, logout } = useAuth();
+  const { userEmail, logout } = useAuth();
 
   const handleLogout = async () => {
     await logout();
+  };
+
+  const getInitials = (email: string | null) => {
+    if (!email) return "U";
+    return email.charAt(0).toUpperCase();
   };
 
   return (
@@ -43,6 +49,18 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
           <SidebarContent>
             <SidebarGroup>
               <SidebarGroupContent>
+                <div className="p-4">
+                  <div className="flex items-center space-x-4 bg-white p-3 rounded-lg shadow-sm mb-6">
+                    <Avatar className="bg-purple-500">
+                      <AvatarFallback>{getInitials(userEmail)}</AvatarFallback>
+                    </Avatar>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none">{userEmail}</p>
+                      <p className="text-xs text-muted-foreground">Agent</p>
+                    </div>
+                  </div>
+                </div>
+                
                 <SidebarMenu>
                   <SidebarMenuItem>
                     <SidebarMenuButton 
@@ -50,22 +68,7 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
                       onClick={() => setActiveTab("dashboard")}
                       tooltip="Dashboard"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                      >
-                        <rect width="18" height="18" x="3" y="3" rx="2" />
-                        <path d="M3 9h18" />
-                        <path d="M3 15h18" />
-                        <path d="M9 21V9" />
-                        <path d="M15 21V9" />
-                      </svg>
+                      <LayoutDashboard className="h-4 w-4" />
                       <span>Dashboard</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
@@ -76,22 +79,19 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
                       onClick={() => setActiveTab("call-logs")}
                       tooltip="Call Logs"
                     >
-                      <svg
-                        xmlns="http://www.w3.org/2000/svg"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        className="h-4 w-4"
-                      >
-                        <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-                        <line x1="3" x2="21" y1="9" y2="9" />
-                        <line x1="3" x2="21" y1="15" y2="15" />
-                        <line x1="12" x2="12" y1="3" y2="21" />
-                      </svg>
+                      <Phone className="h-4 w-4" />
                       <span>Call Logs</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                  
+                  <SidebarMenuItem>
+                    <SidebarMenuButton 
+                      isActive={activeTab === "analysis"}
+                      onClick={() => setActiveTab("analysis")}
+                      tooltip="Analysis"
+                    >
+                      <BarChart className="h-4 w-4" />
+                      <span>Analysis</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 </SidebarMenu>
@@ -99,12 +99,6 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
             </SidebarGroup>
 
             <div className="mt-auto p-4">
-              <div className="mb-2 text-sm text-gray-600 truncate">
-                {userEmail}
-              </div>
-              <div className="mb-2 text-xs text-gray-500 truncate">
-                Agent ID: {agentId}
-              </div>
               <Button 
                 onClick={handleLogout} 
                 variant="outline"
