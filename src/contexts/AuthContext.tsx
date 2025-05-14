@@ -95,15 +95,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string) => {
     try {
-      // Updated options to disable email confirmation
+      // Using signUp with auto-confirm enabled in the admin settings
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           emailRedirectTo: window.location.origin,
-          // Skip email verification
+          // Important: This tells Supabase to automatically confirm this user
           data: {
-            email_confirm: true
+            email_confirmed: true
           }
         }
       });
