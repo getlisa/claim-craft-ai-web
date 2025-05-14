@@ -1,6 +1,6 @@
 
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Clock, FileSparkles, User, Phone } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -73,7 +73,7 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
             <span className="font-medium">{formatDate(call.start_timestamp)}</span>
           </div>
           <div className="flex items-center gap-2">
-            <FileSparkles className="w-4 h-4 text-gray-400" />
+            <Sparkles className="w-4 h-4 text-gray-400" />
             <span className="text-gray-500">Ended:</span>
             <span className="font-medium">{formatDate(call.end_timestamp)}</span>
           </div>
@@ -102,7 +102,7 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
             {call.transcript && (
               <div>
                 <h4 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
-                  <FileSparkles className="w-4 h-4 text-blue-500" />
+                  <Sparkles className="w-4 h-4 text-blue-500" />
                   Transcript
                 </h4>
                 <div className="bg-gray-50 p-3 rounded-md text-gray-700 max-h-32 overflow-y-auto text-sm">
