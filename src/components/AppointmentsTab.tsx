@@ -1,8 +1,7 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Calendar, Play, Filter, Search } from "lucide-react";
+import { Loader2, Calendar, Play, Square, Search, Filter } from "lucide-react";
 import { format } from "date-fns";
 import { toast } from "sonner";
 import {
@@ -44,6 +43,8 @@ const AppointmentsTab = ({
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
   const [timeFilter, setTimeFilter] = useState('all');
+  const [playingRecording, setPlayingRecording] = useState<string | null>(null);
+  const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const { agentId } = useAuth();
 
   // Directly fetch appointments from database to ensure data is visible
@@ -217,16 +218,52 @@ const AppointmentsTab = ({
     }
   };
 
-  const playRecording = (callId: string, recordingUrl: string) => {
-    if (recordingUrl) {
-      // Create audio element and play recording
-      const audio = new Audio(recordingUrl);
-      audio.play().catch(error => {
-        console.error("Audio playback error:", error);
-        toast.error("Failed to play recording");
-      });
+  // Clean up audio when component unmounts
+  useEffect(() => {
+    return () => {
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.src = "";
+      }
+    };
+  }, [audioElement]);
+
+  const toggleRecording = (callId: string, recordingUrl: string) => {
+    if (playingRecording === callId) {
+      // Stop the currently playing recording
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+      setPlayingRecording(null);
+      setAudioElement(null);
+      toast.info(`Stopped recording for call ${callId}`);
     } else {
-      toast.info(`No recording available for call ${callId}`);
+      // Stop any currently playing recording
+      if (audioElement) {
+        audioElement.pause();
+        audioElement.currentTime = 0;
+      }
+      
+      // Play the new recording
+      if (recordingUrl) {
+        const audio = new Audio(recordingUrl);
+        audio.addEventListener('ended', () => {
+          setPlayingRecording(null);
+          setAudioElement(null);
+        });
+        
+        audio.play().catch(error => {
+          console.error("Audio playback error:", error);
+          toast.error("Failed to play recording");
+          setPlayingRecording(null);
+        });
+        
+        setPlayingRecording(callId);
+        setAudioElement(audio);
+      } else {
+        toast.info(`No recording available for call ${callId}`);
+      }
     }
   };
 
@@ -365,9 +402,13 @@ const AppointmentsTab = ({
                           size="sm" 
                           variant="ghost"
                           className="rounded-full w-8 h-8 p-0"
-                          onClick={() => playRecording(appointment.call_id, appointment.recording_url)}
+                          onClick={() => toggleRecording(appointment.call_id, appointment.recording_url)}
                         >
-                          <Play className="h-4 w-4 text-purple-600" />
+                          {playingRecording === appointment.call_id ? (
+                            <Square className="h-4 w-4 text-red-600" />
+                          ) : (
+                            <Play className="h-4 w-4 text-purple-600" />
+                          )}
                         </Button>
                       </TableCell>
                     </TableRow>

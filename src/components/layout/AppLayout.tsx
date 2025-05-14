@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Calendar, Table, Headphones, LogOut } from "lucide-react";
+import { Calendar, Table, Headphones, LogOut, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -73,6 +73,18 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
             >
               <Calendar className="mr-2 h-4 w-4" />
               Appointments
+            </Button>
+            <Button
+              variant={activeTab === "calendar" ? "default" : "ghost"}
+              className={`w-full justify-start ${
+                activeTab === "calendar"
+                  ? "bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
+                  : "hover:bg-purple-50"
+              }`}
+              onClick={() => setActiveTab("calendar")}
+            >
+              <CalendarClock className="mr-2 h-4 w-4" />
+              Calendar
             </Button>
           </div>
           

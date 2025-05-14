@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
 import AppointmentsTab from "@/components/AppointmentsTab";
+import CalendarTab from "@/components/CalendarTab";
 import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
@@ -101,7 +102,6 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
-            refreshCalls={fetchCalls}
           />
         }
         {activeTab === "call-logs" && 
@@ -109,7 +109,6 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
-            refreshCalls={fetchCalls}
           />
         }
         {activeTab === "appointments" && 
@@ -117,7 +116,13 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
-            refreshCalls={fetchCalls}
+          />
+        }
+        {activeTab === "calendar" && 
+          <CalendarTab 
+            initialCalls={calls} 
+            initialLoading={loading} 
+            dataLoaded={initialDataLoaded}
           />
         }
       </div>
