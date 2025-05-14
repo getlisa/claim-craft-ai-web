@@ -1,64 +1,193 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
-import { PieChart, Pie, Cell, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
-import { Headphones, Clock, User, Calendar, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { Headphones, Clock, CheckCircle, Calendar, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-
-// Function to fetch dashboard data from a real API
-const fetchDashboardData = async () => {
-  try {
-    // In a real-world scenario, this would be your actual API endpoint
-    const response = await fetch('https://api.example.com/dashboard-data');
-    
-    if (!response.ok) {
-      throw new Error('Failed to fetch dashboard data');
-    }
-    
-    return await response.json();
-  } catch (error) {
-    console.error('Error fetching dashboard data:', error);
-    throw error; // Let React Query handle the error
-  }
-};
+import { supabase } from "@/lib/supabase";
+import { format } from "date-fns";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
 
 const DashboardTab = () => {
   const { agentId } = useAuth();
-  
-  // Use React Query for data fetching and caching
-  const { 
-    data: dashboardData, 
-    isLoading, 
-    isError, 
-    error, 
-    refetch 
-  } = useQuery({
-    queryKey: ['dashboardData', agentId],
-    queryFn: fetchDashboardData,
-    refetchOnWindowFocus: false,
-    retry: 1,
-    meta: {
-      errorMessage: "Failed to load dashboard data"
-    },
-    onSuccess: (data) => {
-      toast.success("Dashboard data loaded successfully");
-    },
-    onError: (error) => {
-      toast.error("Failed to load dashboard data");
-    }
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [callStats, setCallStats] = useState({
+    totalCalls: 0,
+    avgDuration: "0:00",
+    successfulCalls: 0,
+    sentimentData: [],
+    recentCalls: []
   });
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Fetch call data from Supabase
+      const { data: callData, error: callError } = await supabase
+        .from('call_logs')
+        .select('*')
+        .eq('agent_id', agentId)
+        .order('start_timestamp', { ascending: false });
+
+      if (callError) throw callError;
+
+      if (!callData || callData.length === 0) {
+        setCallStats({
+          totalCalls: 0,
+          avgDuration: "0:00",
+          successfulCalls: 0,
+          sentimentData: [],
+          recentCalls: []
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Calculate total calls
+      const totalCalls = callData.length;
+
+      // Calculate successful calls (completed status)
+      const successfulCalls = callData.filter(call => call.call_status === 'completed').length;
+
+      // Calculate average duration
+      let totalDurationMs = 0;
+      let callsWithDuration = 0;
+
+      callData.forEach(call => {
+        if (call.start_timestamp && call.end_timestamp) {
+          const start = new Date(call.start_timestamp).getTime();
+          const end = new Date(call.end_timestamp).getTime();
+          
+          if (!isNaN(start) && !isNaN(end) && end > start) {
+            totalDurationMs += (end - start);
+            callsWithDuration++;
+          }
+        }
+      });
+
+      // Format average duration
+      let avgDuration = "0:00";
+      if (callsWithDuration > 0) {
+        const avgDurationMs = totalDurationMs / callsWithDuration;
+        const minutes = Math.floor(avgDurationMs / 60000);
+        const seconds = Math.floor((avgDurationMs % 60000) / 1000);
+        avgDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+      }
+
+      // Calculate sentiment data for the chart
+      const sentimentCounts: { [key: string]: number } = { 
+        positive: 0, 
+        neutral: 0, 
+        negative: 0 
+      };
+
+      callData.forEach(call => {
+        const sentiment = call.user_sentiment?.toLowerCase() || 'neutral';
+        if (['positive', 'neutral', 'negative'].includes(sentiment)) {
+          sentimentCounts[sentiment]++;
+        } else {
+          sentimentCounts['neutral']++;
+        }
+      });
+
+      const sentimentData = [
+        { name: 'Positive', value: sentimentCounts.positive },
+        { name: 'Neutral', value: sentimentCounts.neutral },
+        { name: 'Negative', value: sentimentCounts.negative }
+      ];
+
+      // Get the 5 most recent calls
+      const recentCalls = callData.slice(0, 5);
+
+      setCallStats({
+        totalCalls,
+        avgDuration,
+        successfulCalls,
+        sentimentData,
+        recentCalls
+      });
+
+      toast.success("Dashboard data loaded successfully");
+    } catch (err: any) {
+      console.error("Error fetching dashboard data:", err);
+      setError(err.message || "Failed to load dashboard data");
+      toast.error("Failed to load dashboard data");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (agentId) {
+      fetchDashboardData();
+    }
+  }, [agentId]);
+
+  const COLORS = ['#7c3aed', '#c4b5fd', '#ddd6fe'];
+
+  const formatDate = (timestamp: string) => {
+    if (!timestamp) return "N/A";
+    try {
+      return format(new Date(timestamp), "MMM d, yyyy h:mm a");
+    } catch (error) {
+      return "Invalid Date";
+    }
+  };
+
+  const formatDuration = (call: any) => {
+    if (!call.start_timestamp || !call.end_timestamp) return "N/A";
+    
+    try {
+      const start = new Date(call.start_timestamp).getTime();
+      const end = new Date(call.end_timestamp).getTime();
+      const durationMs = end - start;
+      
+      if (isNaN(durationMs) || durationMs < 0) return "N/A";
+      
+      const minutes = Math.floor(durationMs / 60000);
+      const seconds = Math.floor((durationMs % 60000) / 1000);
+      
+      return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    } catch (error) {
+      return "N/A";
+    }
+  };
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "completed":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "in-progress":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "failed":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "scheduled":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "rejected":
+        return "bg-orange-100 text-orange-800 border-orange-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
 
   const chartConfig = {
     primary: { theme: { light: "#7c3aed", dark: "#8b5cf6" } },
     secondary: { theme: { light: "#c4b5fd", dark: "#a78bfa" } },
-    tertiary: { theme: { light: "#ddd6fe", dark: "#c4b5fd" } },
-    quaternary: { theme: { light: "#ede9fe", dark: "#ddd6fe" } },
+    tertiary: { theme: { light: "#ddd6fe", dark: "#c4b5fd" } }
   };
-  
-  const COLORS = ['#7c3aed', '#c4b5fd', '#ddd6fe', '#a78bfa', '#ede9fe'];
 
   if (isLoading) {
     return (
@@ -69,29 +198,17 @@ const DashboardTab = () => {
     );
   }
   
-  if (isError) {
+  if (error) {
     return (
       <div className="flex flex-col items-center justify-center h-64">
-        <div className="text-red-500 mb-4">Failed to load dashboard data</div>
-        <Button onClick={() => refetch()} variant="outline">
+        <div className="text-red-500 mb-4">{error}</div>
+        <Button onClick={() => fetchDashboardData()} variant="outline">
           Retry
         </Button>
       </div>
     );
   }
 
-  // If we have no data even after loading, show empty state
-  if (!dashboardData) {
-    return (
-      <div className="flex flex-col items-center justify-center h-64 text-center">
-        <div className="text-gray-500 mb-4">No dashboard data available</div>
-        <Button onClick={() => refetch()} variant="outline">
-          Refresh Data
-        </Button>
-      </div>
-    );
-  }
-  
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -101,17 +218,7 @@ const DashboardTab = () => {
             <Headphones className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.totalCalls || 0}</div>
-            <div className="flex items-center mt-1">
-              {dashboardData?.callTrend > 0 ? (
-                <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-              )}
-              <p className={`text-xs ${dashboardData?.callTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData?.callTrend || 0)}% from last week
-              </p>
-            </div>
+            <div className="text-2xl font-bold">{callStats.totalCalls}</div>
           </CardContent>
         </Card>
         
@@ -121,37 +228,17 @@ const DashboardTab = () => {
             <Clock className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.avgDuration || "0:00"}</div>
-            <div className="flex items-center mt-1">
-              {dashboardData?.durationTrend > 0 ? (
-                <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-              )}
-              <p className={`text-xs ${dashboardData?.durationTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData?.durationTrend || 0)}% from last week
-              </p>
-            </div>
+            <div className="text-2xl font-bold">{callStats.avgDuration}</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-            <CardTitle className="text-sm font-medium">Unique Callers</CardTitle>
-            <User className="h-4 w-4 text-purple-500" />
+            <CardTitle className="text-sm font-medium">Successful Calls</CardTitle>
+            <CheckCircle className="h-4 w-4 text-purple-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboardData?.uniqueCallers || 0}</div>
-            <div className="flex items-center mt-1">
-              {dashboardData?.callersTrend > 0 ? (
-                <ArrowUpRight className="h-3 w-3 text-green-500 mr-1" />
-              ) : (
-                <ArrowDownRight className="h-3 w-3 text-red-500 mr-1" />
-              )}
-              <p className={`text-xs ${dashboardData?.callersTrend > 0 ? 'text-green-500' : 'text-red-500'}`}>
-                {Math.abs(dashboardData?.callersTrend || 0)}% from last week
-              </p>
-            </div>
+            <div className="text-2xl font-bold">{callStats.successfulCalls}</div>
           </CardContent>
         </Card>
       </div>
@@ -159,50 +246,16 @@ const DashboardTab = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card>
           <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Call volume over the past week</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {dashboardData?.recentActivity && dashboardData?.recentActivity.length > 0 ? (
-              <ChartContainer config={chartConfig} className="h-[250px]">
-                <ResponsiveContainer>
-                  <LineChart data={dashboardData?.recentActivity}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="day" />
-                    <YAxis />
-                    <Tooltip content={<ChartTooltipContent />} />
-                    <Line 
-                      type="monotone" 
-                      dataKey="calls" 
-                      stroke="var(--color-primary)" 
-                      strokeWidth={2} 
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }} 
-                      name="Calls" 
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              </ChartContainer>
-            ) : (
-              <div className="flex items-center justify-center h-[250px] text-gray-500">
-                No activity data available
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Call Distribution</CardTitle>
-            <CardDescription>By category</CardDescription>
+            <CardTitle>Sentiment Distribution</CardTitle>
+            <CardDescription>Call sentiment analysis</CardDescription>
           </CardHeader>
           <CardContent className="flex justify-center">
-            {dashboardData?.callDistribution && dashboardData?.callDistribution.length > 0 ? (
+            {callStats.sentimentData && callStats.sentimentData.some(item => item.value > 0) ? (
               <ChartContainer config={chartConfig} className="h-[250px]">
                 <ResponsiveContainer>
                   <PieChart>
                     <Pie
-                      data={dashboardData?.callDistribution}
+                      data={callStats.sentimentData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -212,17 +265,59 @@ const DashboardTab = () => {
                       nameKey="name"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {dashboardData?.callDistribution.map((entry: any, index: number) => (
+                      {callStats.sentimentData.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip content={<ChartTooltipContent />} />
                   </PieChart>
                 </ResponsiveContainer>
               </ChartContainer>
             ) : (
               <div className="flex items-center justify-center h-[250px] text-gray-500">
-                No distribution data available
+                No sentiment data available
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Calls</CardTitle>
+            <CardDescription>Last 5 calls</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {callStats.recentCalls && callStats.recentCalls.length > 0 ? (
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>ID</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Duration</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {callStats.recentCalls.map((call: any) => (
+                      <TableRow key={call.id}>
+                        <TableCell className="font-medium">
+                          {call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A"}
+                        </TableCell>
+                        <TableCell>{formatDate(call.start_timestamp)}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
+                            {call.call_status || "unknown"}
+                          </span>
+                        </TableCell>
+                        <TableCell>{formatDuration(call)}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-[250px] text-gray-500">
+                No recent calls
               </div>
             )}
           </CardContent>
@@ -231,7 +326,7 @@ const DashboardTab = () => {
       
       <div className="flex justify-center">
         <Button 
-          onClick={() => refetch()}
+          onClick={() => fetchDashboardData()}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-full shadow-lg transition-all flex items-center gap-2"
           disabled={isLoading}
         >
