@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -22,12 +23,14 @@ interface DashboardTabProps {
   initialCalls?: any[];
   initialLoading?: boolean;
   dataLoaded?: boolean;
+  refreshCalls?: () => Promise<void>;
 }
 
 const DashboardTab = ({
   initialCalls = [],
   initialLoading = false,
-  dataLoaded = false
+  dataLoaded = false,
+  refreshCalls
 }: DashboardTabProps) => {
   const { agentId } = useAuth();
   const [isLoading, setIsLoading] = useState(initialLoading);
