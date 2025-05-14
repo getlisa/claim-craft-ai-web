@@ -30,8 +30,8 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
-    callStatus: "",
-    appointmentStatus: "",
+    callStatus: "all",
+    appointmentStatus: "all",
     dateFrom: "",
     dateTo: "",
     minDuration: "",
@@ -39,18 +39,24 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
+  // Custom function to safely handle potentially undefined values to avoid UI errors
+  const safeValue = (value: string | undefined | null): string => {
+    return value || ""; // Return empty string if value is null or undefined
+  };
+
   const toggleExpand = (callId: string) => {
     setExpandedCallId(expandedCallId === callId ? null : callId);
   };
 
   const handleFilterChange = (key: string, value: string) => {
+    console.log(`Setting filter ${key} to value: ${value}`);
     setFilters({
       ...filters,
       [key]: value
     });
     
     // Update active filters
-    if (value) {
+    if (value && value !== "all") {
       if (!activeFilters.includes(key)) {
         setActiveFilters([...activeFilters, key]);
       }
@@ -62,15 +68,15 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
   const clearFilter = (key: string) => {
     setFilters({
       ...filters,
-      [key]: ""
+      [key]: key === "callStatus" || key === "appointmentStatus" ? "all" : ""
     });
     setActiveFilters(activeFilters.filter(filter => filter !== key));
   };
 
   const clearAllFilters = () => {
     setFilters({
-      callStatus: "",
-      appointmentStatus: "",
+      callStatus: "all",
+      appointmentStatus: "all",
       dateFrom: "",
       dateTo: "",
       minDuration: "",
@@ -87,12 +93,12 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
     }
 
     // Call status filter
-    if (filters.callStatus && call.call_status !== filters.callStatus) {
+    if (filters.callStatus !== "all" && call.call_status !== filters.callStatus) {
       return false;
     }
 
     // Appointment status filter
-    if (filters.appointmentStatus && call.appointment_status !== filters.appointmentStatus) {
+    if (filters.appointmentStatus !== "all" && call.appointment_status !== filters.appointmentStatus) {
       return false;
     }
 
@@ -148,12 +154,13 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
     switch(key) {
       case "dateFrom": 
       case "dateTo":
+        if (!filters[key]) return "";
         return new Date(filters[key]).toLocaleDateString();
       case "minDuration":
       case "maxDuration":
         return `${filters[key]} min`;
       default:
-        return filters[key];
+        return filters[key] === "all" ? "Any" : filters[key];
     }
   };
 
@@ -216,7 +223,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                 <h3 className="font-medium text-sm">Advanced Filters</h3>
                 <Separator />
                 
-                {/* Call Status filter */}
+                {/* Call Status filter - Fixed to use "all" instead of empty string */}
                 <div className="space-y-2">
                   <Label htmlFor="call-status">Call Status</Label>
                   <Select 
@@ -227,7 +234,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       <SelectValue placeholder="Any status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any status</SelectItem>
+                      <SelectItem value="all">Any status</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="in-progress">In Progress</SelectItem>
                       <SelectItem value="failed">Failed</SelectItem>
@@ -235,7 +242,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                   </Select>
                 </div>
                 
-                {/* Appointment Status filter */}
+                {/* Appointment Status filter - Fixed to use "all" instead of empty string */}
                 <div className="space-y-2">
                   <Label htmlFor="appointment-status">Appointment Status</Label>
                   <Select 
@@ -246,7 +253,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       <SelectValue placeholder="Any status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">Any status</SelectItem>
+                      <SelectItem value="all">Any status</SelectItem>
                       <SelectItem value="scheduled">Scheduled</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="in-process">In Process</SelectItem>
@@ -262,7 +269,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                     <Input
                       id="date-from"
                       type="date"
-                      value={filters.dateFrom}
+                      value={safeValue(filters.dateFrom)}
                       onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
                     />
                   </div>
@@ -272,7 +279,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                     <Input
                       id="date-to"
                       type="date"
-                      value={filters.dateTo}
+                      value={safeValue(filters.dateTo)}
                       onChange={(e) => handleFilterChange("dateTo", e.target.value)}
                     />
                   </div>
@@ -286,7 +293,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       id="min-duration"
                       type="number"
                       min="0"
-                      value={filters.minDuration}
+                      value={safeValue(filters.minDuration)}
                       onChange={(e) => handleFilterChange("minDuration", e.target.value)}
                     />
                   </div>
@@ -297,7 +304,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       id="max-duration"
                       type="number"
                       min="0"
-                      value={filters.maxDuration}
+                      value={safeValue(filters.maxDuration)}
                       onChange={(e) => handleFilterChange("maxDuration", e.target.value)}
                     />
                   </div>
