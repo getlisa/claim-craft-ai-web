@@ -662,7 +662,7 @@ const CallLogsTab = ({
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Close
                 </Button>
-                <Button onClick={()={() => {
+                <Button onClick={() => {
                   setDialogOpen(false);
                   handleEditClick(selectedCall);
                 }}>
