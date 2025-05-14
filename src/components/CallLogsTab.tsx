@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { Search, Info, Edit, Calendar, Play, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -35,9 +34,19 @@ import {
 import { Label } from "@/components/ui/label";
 import { fetchCallsFromApi, saveCallToSupabase, CallData } from "@/lib/migrateCallsToSupabase";
 
-const CallLogsTab = () => {
-  const [calls, setCalls] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+interface CallLogsTabProps {
+  initialCalls?: any[];
+  initialLoading?: boolean;
+  dataLoaded?: boolean;
+}
+
+const CallLogsTab = ({
+  initialCalls = [],
+  initialLoading = false,
+  dataLoaded = false
+}: CallLogsTabProps) => {
+  const [calls, setCalls] = useState<any[]>(initialCalls);
+  const [loading, setLoading] = useState(initialLoading);
   const [error, setError] = useState<string | null>(null);
   const { agentId } = useAuth();
   const [searchQuery, setSearchQuery] = useState("");
@@ -53,6 +62,16 @@ const CallLogsTab = () => {
   });
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  
+  // Load calls if we have initial data or need to fetch
+  useEffect(() => {
+    if (initialCalls.length > 0) {
+      setCalls(initialCalls);
+    } else if (dataLoaded && !initialLoading) {
+      // If data is loaded but no calls, fetch data
+      fetchCalls();
+    }
+  }, [initialCalls, dataLoaded, initialLoading]);
   
   const fetchCalls = async () => {
     if (!agentId) {
@@ -120,11 +139,6 @@ const CallLogsTab = () => {
       setLoading(false);
     }
   };
-
-  // Auto-fetch calls when component loads
-  useEffect(() => {
-    fetchCalls();
-  }, [agentId]);
 
   const filteredCalls = calls.filter(call => {
     if (!searchQuery.trim()) return true;
@@ -371,7 +385,20 @@ const CallLogsTab = () => {
             ) : filteredCalls.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center">
-                  No calls found
+                  {calls.length === 0 ? (
+                    <div className="flex flex-col items-center gap-2">
+                      <p>No calls found</p>
+                      <Button 
+                        onClick={fetchCalls}
+                        variant="outline"
+                        size="sm"
+                      >
+                        Refresh Calls
+                      </Button>
+                    </div>
+                  ) : (
+                    "No matches for your search"
+                  )}
                 </TableCell>
               </TableRow>
             ) : (

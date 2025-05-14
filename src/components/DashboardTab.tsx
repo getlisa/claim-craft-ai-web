@@ -1,10 +1,9 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart";
+import { ChartContainer } from "@/components/ui/chart";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
-import { Headphones, Clock, CheckCircle, Calendar, ArrowUpRight, ArrowDownRight, Loader2 } from "lucide-react";
+import { Headphones, Clock, CheckCircle, Calendar, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
@@ -19,9 +18,19 @@ import {
   TableRow
 } from "@/components/ui/table";
 
-const DashboardTab = () => {
+interface DashboardTabProps {
+  initialCalls?: any[];
+  initialLoading?: boolean;
+  dataLoaded?: boolean;
+}
+
+const DashboardTab = ({
+  initialCalls = [],
+  initialLoading = false,
+  dataLoaded = false
+}: DashboardTabProps) => {
   const { agentId } = useAuth();
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(initialLoading);
   const [error, setError] = useState<string | null>(null);
   const [callStats, setCallStats] = useState({
     totalCalls: 0,
@@ -31,7 +40,95 @@ const DashboardTab = () => {
     recentCalls: []
   });
 
+  // Process calls data whenever it changes
+  useEffect(() => {
+    if (initialCalls.length > 0) {
+      processCallsData(initialCalls);
+    } else if (dataLoaded && !initialLoading) {
+      // If data is loaded but no calls, fetch data
+      fetchDashboardData();
+    }
+  }, [initialCalls, dataLoaded, initialLoading]);
+
+  const processCallsData = (calls: any[]) => {
+    // Calculate total calls
+    const totalCalls = calls.length;
+
+    // Calculate successful calls (completed status)
+    const successfulCalls = calls.filter(call => call.call_status === 'completed').length;
+
+    // Calculate average duration
+    let totalDurationMs = 0;
+    let callsWithDuration = 0;
+
+    calls.forEach(call => {
+      if (call.start_timestamp && call.end_timestamp) {
+        const start = new Date(call.start_timestamp).getTime();
+        const end = new Date(call.end_timestamp).getTime();
+        
+        if (!isNaN(start) && !isNaN(end) && end > start) {
+          totalDurationMs += (end - start);
+          callsWithDuration++;
+        }
+      }
+    });
+
+    // Format average duration
+    let avgDuration = "0:00";
+    if (callsWithDuration > 0) {
+      const avgDurationMs = totalDurationMs / callsWithDuration;
+      const minutes = Math.floor(avgDurationMs / 60000);
+      const seconds = Math.floor((avgDurationMs % 60000) / 1000);
+      avgDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+    }
+
+    // Calculate sentiment data for the chart
+    const sentimentCounts: { [key: string]: number } = { 
+      positive: 0, 
+      neutral: 0, 
+      negative: 0 
+    };
+
+    calls.forEach(call => {
+      // First check call_analysis.user_sentiment, then fall back to call.user_sentiment
+      const sentiment = call.call_analysis?.user_sentiment?.toLowerCase() || 
+                        call.user_sentiment?.toLowerCase() || 
+                        'neutral';
+      if (['positive', 'neutral', 'negative'].includes(sentiment)) {
+        sentimentCounts[sentiment]++;
+      } else {
+        sentimentCounts['neutral']++;
+      }
+    });
+
+    const sentimentData = [
+      { name: 'Positive', value: sentimentCounts.positive },
+      { name: 'Neutral', value: sentimentCounts.neutral },
+      { name: 'Negative', value: sentimentCounts.negative }
+    ];
+
+    // Get the 5 most recent calls
+    const recentCalls = [...calls].sort((a, b) => {
+      const dateA = new Date(a.start_timestamp || 0).getTime();
+      const dateB = new Date(b.start_timestamp || 0).getTime();
+      return dateB - dateA;
+    }).slice(0, 5);
+
+    setCallStats({
+      totalCalls,
+      avgDuration,
+      successfulCalls,
+      sentimentData,
+      recentCalls
+    });
+  };
+
   const fetchDashboardData = async () => {
+    if (!agentId) {
+      toast.error("No agent ID found");
+      return;
+    }
+    
     setIsLoading(true);
     setError(null);
 
@@ -76,72 +173,8 @@ const DashboardTab = () => {
         return apiCall;
       });
 
-      // Calculate total calls
-      const totalCalls = mergedCalls.length;
-
-      // Calculate successful calls (completed status)
-      const successfulCalls = mergedCalls.filter(call => call.call_status === 'completed').length;
-
-      // Calculate average duration
-      let totalDurationMs = 0;
-      let callsWithDuration = 0;
-
-      mergedCalls.forEach(call => {
-        if (call.start_timestamp && call.end_timestamp) {
-          const start = new Date(call.start_timestamp).getTime();
-          const end = new Date(call.end_timestamp).getTime();
-          
-          if (!isNaN(start) && !isNaN(end) && end > start) {
-            totalDurationMs += (end - start);
-            callsWithDuration++;
-          }
-        }
-      });
-
-      // Format average duration
-      let avgDuration = "0:00";
-      if (callsWithDuration > 0) {
-        const avgDurationMs = totalDurationMs / callsWithDuration;
-        const minutes = Math.floor(avgDurationMs / 60000);
-        const seconds = Math.floor((avgDurationMs % 60000) / 1000);
-        avgDuration = `${minutes}:${seconds.toString().padStart(2, '0')}`;
-      }
-
-      // Calculate sentiment data for the chart
-      const sentimentCounts: { [key: string]: number } = { 
-        positive: 0, 
-        neutral: 0, 
-        negative: 0 
-      };
-
-      mergedCalls.forEach(call => {
-        // First check call_analysis.user_sentiment, then fall back to call.user_sentiment
-        const sentiment = call.call_analysis?.user_sentiment?.toLowerCase() || 
-                          call.user_sentiment?.toLowerCase() || 
-                          'neutral';
-        if (['positive', 'neutral', 'negative'].includes(sentiment)) {
-          sentimentCounts[sentiment]++;
-        } else {
-          sentimentCounts['neutral']++;
-        }
-      });
-
-      const sentimentData = [
-        { name: 'Positive', value: sentimentCounts.positive },
-        { name: 'Neutral', value: sentimentCounts.neutral },
-        { name: 'Negative', value: sentimentCounts.negative }
-      ];
-
-      // Get the 5 most recent calls
-      const recentCalls = mergedCalls.slice(0, 5);
-
-      setCallStats({
-        totalCalls,
-        avgDuration,
-        successfulCalls,
-        sentimentData,
-        recentCalls
-      });
+      // Process the merged calls data
+      processCallsData(mergedCalls);
 
       toast.success("Dashboard data loaded successfully");
     } catch (err: any) {
@@ -152,12 +185,6 @@ const DashboardTab = () => {
       setIsLoading(false);
     }
   };
-
-  useEffect(() => {
-    if (agentId) {
-      fetchDashboardData();
-    }
-  }, [agentId]);
 
   const COLORS = ['#7c3aed', '#c4b5fd', '#ddd6fe'];
 
