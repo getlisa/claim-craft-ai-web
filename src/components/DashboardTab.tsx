@@ -41,11 +41,16 @@ const DashboardTab = () => {
     queryFn: fetchDashboardData,
     refetchOnWindowFocus: false,
     retry: 1,
-    onSuccess: () => {
-      toast.success("Dashboard data loaded successfully");
+    meta: {
+      errorMessage: "Failed to load dashboard data"
     },
-    onError: () => {
-      toast.error("Failed to load dashboard data");
+    onSettled: (data, error) => {
+      if (data) {
+        toast.success("Dashboard data loaded successfully");
+      }
+      if (error) {
+        toast.error("Failed to load dashboard data");
+      }
     }
   });
 
@@ -251,3 +256,4 @@ const DashboardTab = () => {
 };
 
 export default DashboardTab;
+
