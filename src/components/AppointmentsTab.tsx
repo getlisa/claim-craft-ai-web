@@ -2,8 +2,9 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, Calendar } from "lucide-react";
+import { Loader2, Calendar, Play, Filter, Search } from "lucide-react";
 import { format } from "date-fns";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -12,6 +13,15 @@ import {
   TableHeader,
   TableRow
 } from "@/components/ui/table";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface AppointmentsTabProps {
   initialCalls?: any[];
@@ -27,7 +37,11 @@ const AppointmentsTab = ({
   refreshCalls
 }: AppointmentsTabProps) => {
   const [appointments, setAppointments] = useState<any[]>([]);
+  const [filteredAppointments, setFilteredAppointments] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(initialLoading);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('all');
 
   // Process calls data to extract only scheduled appointments
   useEffect(() => {
@@ -42,27 +56,69 @@ const AppointmentsTab = ({
       });
       
       setAppointments(scheduledAppointments);
+      setFilteredAppointments(scheduledAppointments);
       setIsLoading(false);
     } else {
       setIsLoading(initialLoading);
     }
   }, [initialCalls, initialLoading]);
 
-  const formatAppointmentDate = (date: string, time: string | undefined) => {
-    if (!date) return "Not scheduled";
+  // Apply filters
+  useEffect(() => {
+    let result = [...appointments];
     
-    try {
-      let formattedDate = format(new Date(date), "EEEE, MMMM d, yyyy");
-      
-      if (time) {
-        formattedDate += ` at ${time}`;
-      }
-      
-      return formattedDate;
-    } catch (error) {
-      return "Invalid date";
+    // Apply search filter
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      result = result.filter(appointment => 
+        (appointment.call_id && appointment.call_id.toLowerCase().includes(query)) ||
+        (appointment.caller_phone_number && appointment.caller_phone_number.toLowerCase().includes(query)) ||
+        (appointment.notes && appointment.notes.toLowerCase().includes(query))
+      );
     }
-  };
+    
+    // Apply status filter
+    if (statusFilter !== 'all') {
+      result = result.filter(appointment => 
+        appointment.appointment_status.toLowerCase() === statusFilter.toLowerCase()
+      );
+    }
+    
+    // Apply date filter
+    if (dateFilter !== 'all') {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      
+      const nextWeek = new Date(today);
+      nextWeek.setDate(nextWeek.getDate() + 7);
+      
+      const nextMonth = new Date(today);
+      nextMonth.setMonth(nextMonth.getMonth() + 1);
+      
+      result = result.filter(appointment => {
+        const appointmentDate = new Date(appointment.appointment_date);
+        appointmentDate.setHours(0, 0, 0, 0);
+        
+        switch (dateFilter) {
+          case 'today':
+            return appointmentDate.getTime() === today.getTime();
+          case 'tomorrow':
+            return appointmentDate.getTime() === tomorrow.getTime();
+          case 'week':
+            return appointmentDate >= today && appointmentDate <= nextWeek;
+          case 'month':
+            return appointmentDate >= today && appointmentDate <= nextMonth;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    setFilteredAppointments(result);
+  }, [appointments, searchQuery, statusFilter, dateFilter]);
 
   const getAppointmentStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -79,26 +135,10 @@ const AppointmentsTab = ({
     }
   };
 
-  const getDaysUntilAppointment = (appointmentDate: string) => {
-    if (!appointmentDate) return "";
-    
-    try {
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // Reset time part for accurate day calculation
-      
-      const apptDate = new Date(appointmentDate);
-      apptDate.setHours(0, 0, 0, 0);
-      
-      const diffTime = apptDate.getTime() - today.getTime();
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-      
-      if (diffDays === 0) return "Today";
-      if (diffDays === 1) return "Tomorrow";
-      if (diffDays < 0) return `${Math.abs(diffDays)} days ago`;
-      return `In ${diffDays} days`;
-    } catch (error) {
-      return "";
-    }
+  const playRecording = (callId: string) => {
+    // In a real implementation, this would play the recording
+    console.log(`Playing recording for call ${callId}`);
+    toast.info(`Playing recording for call ${callId}`);
   };
 
   if (isLoading) {
@@ -119,13 +159,76 @@ const AppointmentsTab = ({
         </p>
       </div>
       
-      {appointments.length === 0 ? (
+      {/* Filters */}
+      <Card className="mb-6">
+        <CardContent className="pt-6">
+          <div className="flex flex-col md:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+              <Input
+                placeholder="Search appointments..."
+                className="pl-9"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </div>
+            
+            <Select
+              value={statusFilter}
+              onValueChange={setStatusFilter}
+            >
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Filter by status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Statuses</SelectItem>
+                <SelectItem value="scheduled">Scheduled</SelectItem>
+                <SelectItem value="completed">Completed</SelectItem>
+                <SelectItem value="in-process">In Process</SelectItem>
+                <SelectItem value="rejected">Rejected</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select
+              value={dateFilter}
+              onValueChange={setDateFilter}
+            >
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Filter by date" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Dates</SelectItem>
+                <SelectItem value="today">Today</SelectItem>
+                <SelectItem value="tomorrow">Tomorrow</SelectItem>
+                <SelectItem value="week">This Week</SelectItem>
+                <SelectItem value="month">This Month</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              variant="outline" 
+              className="flex-shrink-0"
+              onClick={() => {
+                setSearchQuery('');
+                setStatusFilter('all');
+                setDateFilter('all');
+              }}
+            >
+              Clear Filters
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+      
+      {filteredAppointments.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">
             <Calendar className="h-16 w-16 text-gray-300 mb-4" />
-            <h3 className="text-xl font-medium text-gray-600">No Scheduled Appointments</h3>
+            <h3 className="text-xl font-medium text-gray-600">No Appointments Found</h3>
             <p className="text-gray-500 mt-2 text-center max-w-md">
-              You don't have any scheduled appointments yet.
+              {appointments.length > 0 
+                ? "No appointments match your current filters." 
+                : "You don't have any scheduled appointments yet."}
             </p>
             <Button 
               onClick={() => refreshCalls && refreshCalls()}
@@ -149,13 +252,11 @@ const AppointmentsTab = ({
                     <TableHead>Call ID</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Appointment Date</TableHead>
-                    <TableHead>When</TableHead>
-                    <TableHead>Client Contact</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>Recording</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {appointments.map((appointment) => (
+                  {filteredAppointments.map((appointment) => (
                     <TableRow key={appointment.id || appointment.call_id}>
                       <TableCell className="font-medium">
                         {appointment.call_id ? appointment.call_id.substring(0, 8) + "..." : "N/A"}
@@ -168,19 +269,18 @@ const AppointmentsTab = ({
                       <TableCell>
                         <div className="flex items-center">
                           <Calendar className="h-3 w-3 mr-2 text-purple-500" />
-                          <span>{formatAppointmentDate(appointment.appointment_date, appointment.appointment_time)}</span>
+                          <span>{appointment.appointment_date} {appointment.appointment_time && `at ${appointment.appointment_time}`}</span>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="text-xs font-medium px-2 py-1 bg-gray-100 rounded-full">
-                          {getDaysUntilAppointment(appointment.appointment_date)}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        {appointment.caller_phone_number || "No contact info"}
-                      </TableCell>
-                      <TableCell className="max-w-[200px] truncate">
-                        {appointment.notes || "No notes"}
+                        <Button 
+                          size="sm" 
+                          variant="ghost"
+                          className="rounded-full w-8 h-8 p-0"
+                          onClick={() => playRecording(appointment.call_id)}
+                        >
+                          <Play className="h-4 w-4 text-purple-600" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))}
