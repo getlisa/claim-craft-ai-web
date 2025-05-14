@@ -1,6 +1,5 @@
-
 import { useEffect, useState } from "react";
-import { Search, Info, Edit, Calendar, Play, Pause, Headphones } from "lucide-react";
+import { Info, Edit, Calendar, Play, Pause, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
@@ -139,17 +138,6 @@ const CallLogsTab = ({
       setLoading(false);
     }
   };
-
-  const filteredCalls = calls.filter(call => {
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      call.call_id?.toLowerCase().includes(query) ||
-      call.call_status?.toLowerCase().includes(query) ||
-      call.transcript?.toLowerCase().includes(query) ||
-      call.appointment_status?.toLowerCase().includes(query)
-    );
-  });
 
   const formatDate = (timestamp: string) => {
     if (!timestamp) return "N/A";
@@ -348,18 +336,14 @@ const CallLogsTab = ({
     setEditDialogOpen(true);
   };
 
+  const filteredCalls = calls;
+
   return (
     <div>
       <div className="flex flex-col mb-6">
         <div className="flex justify-between items-center mb-4">
           <div className="relative flex-1 max-w-md">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search calls..."
-              className="pl-10"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
+            
           </div>
           <Button 
             variant="outline"
