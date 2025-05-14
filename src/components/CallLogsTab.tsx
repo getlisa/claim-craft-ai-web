@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Search, Info, Edit, Calendar, Play, Headphones } from "lucide-react";
+import { Search, Info, Edit, Calendar, Play, Pause, Headphones } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
@@ -38,12 +38,14 @@ interface CallLogsTabProps {
   initialCalls?: any[];
   initialLoading?: boolean;
   dataLoaded?: boolean;
+  refreshCalls?: () => Promise<void>;
 }
 
 const CallLogsTab = ({
   initialCalls = [],
   initialLoading = false,
-  dataLoaded = false
+  dataLoaded = false,
+  refreshCalls
 }: CallLogsTabProps) => {
   const [calls, setCalls] = useState<any[]>(initialCalls);
   const [loading, setLoading] = useState(initialLoading);
@@ -63,12 +65,13 @@ const CallLogsTab = ({
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   
-  // Load calls if we have initial data or need to fetch
+  // Load calls from props or fetch them
   useEffect(() => {
     if (initialCalls.length > 0) {
       setCalls(initialCalls);
+      setLoading(false);
     } else if (dataLoaded && !initialLoading) {
-      // If data is loaded but no calls, fetch data
+      // Data loaded but no calls passed in props, fetch data
       fetchCalls();
     }
   }, [initialCalls, dataLoaded, initialLoading]);
@@ -220,22 +223,46 @@ const CallLogsTab = ({
     }
   };
 
-  const handleRowClick = (call: any) => {
-    setSelectedCall(call);
-    setDialogOpen(true);
+  const getSummary = (call: any) => {
+    // First check if we have a call_analysis with call_summary
+    if (call.call_analysis?.call_summary) {
+      return call.call_analysis.call_summary;
+    }
+    
+    // Check for direct summary property
+    if (call.summary) return call.summary;
+    
+    // Check for quick_summary property as some API endpoints use this
+    if (call.quick_summary) return call.quick_summary;
+    
+    if (call.transcript) {
+      // Generate a simple summary based on first few words
+      const words = call.transcript.split(' ').slice(0, 30);
+      return `${words.join(' ')}... [Automatically generated summary]`;
+    }
+    
+    return "No summary available for this call.";
   };
 
-  const handleEditClick = (call: any) => {
-    setSelectedCall(call);
-    setEditingCallData({
-      appointment_status: call.appointment_status || '',
-      appointment_date: call.appointment_date || '',
-      appointment_time: call.appointment_time || '',
-      notes: call.notes || ''
-    });
-    setEditDialogOpen(true);
+  // Function to handle audio playback
+  const toggleAudio = (audioRef: HTMLAudioElement | null) => {
+    if (!audioRef) return;
+    
+    if (audioRef.paused) {
+      audioRef.play().then(() => {
+        setPlayingAudio(true);
+      }).catch(error => {
+        console.error("Audio playback error:", error);
+        toast.error("Failed to play audio");
+        setPlayingAudio(false);
+      });
+    } else {
+      audioRef.pause();
+      setPlayingAudio(false);
+    }
   };
 
+  // Handle changes in appointment status and other call details
   const saveCallEdits = async () => {
     if (!selectedCall || !selectedCall.call_id) {
       toast.error("No call selected or call ID missing");
@@ -266,6 +293,11 @@ const CallLogsTab = ({
             : call
         ));
         
+        // If we have a refresh function from parent, call it to update all data
+        if (refreshCalls) {
+          refreshCalls();
+        }
+        
         setEditDialogOpen(false);
       } else {
         toast.error("Failed to update call");
@@ -276,77 +308,70 @@ const CallLogsTab = ({
     }
   };
 
-  const getSummary = (call: any) => {
-    // First check if we have a call_analysis with call_summary
-    if (call.call_analysis?.call_summary) {
-      return call.call_analysis.call_summary;
-    }
-    
-    if (call.summary) return call.summary;
-    
-    if (call.transcript) {
-      // Generate a simple summary based on first few words
-      const words = call.transcript.split(' ').slice(0, 30);
-      return `${words.join(' ')}... [Automatically generated summary]`;
-    }
-    
-    return "No summary available for this call.";
-  };
-
-  // Function to handle audio playback
-  const toggleAudio = () => {
-    if (!selectedCall?.recording_url || !audioElement) return;
-    
-    if (playingAudio) {
-      audioElement.pause();
-    } else {
-      audioElement.play();
-    }
-    
-    setPlayingAudio(!playingAudio);
-  };
-
   // Initialize audio element when dialog opens with a call that has recording
   useEffect(() => {
     if (dialogOpen && selectedCall?.recording_url) {
       const audio = new Audio(selectedCall.recording_url);
       
-      audio.addEventListener('ended', () => {
-        setPlayingAudio(false);
-      });
+      const handleAudioEnded = () => setPlayingAudio(false);
+      const handleAudioPaused = () => setPlayingAudio(false);
+      const handleAudioPlay = () => setPlayingAudio(true);
       
-      audio.addEventListener('pause', () => {
-        setPlayingAudio(false);
-      });
-      
-      audio.addEventListener('play', () => {
-        setPlayingAudio(true);
-      });
+      audio.addEventListener('ended', handleAudioEnded);
+      audio.addEventListener('pause', handleAudioPaused);
+      audio.addEventListener('play', handleAudioPlay);
       
       setAudioElement(audio);
       
       return () => {
         audio.pause();
-        audio.removeEventListener('ended', () => setPlayingAudio(false));
-        audio.removeEventListener('pause', () => setPlayingAudio(false));
-        audio.removeEventListener('play', () => setPlayingAudio(true));
+        audio.removeEventListener('ended', handleAudioEnded);
+        audio.removeEventListener('pause', handleAudioPaused);
+        audio.removeEventListener('play', handleAudioPlay);
         setAudioElement(null);
         setPlayingAudio(false);
       };
     }
   }, [dialogOpen, selectedCall]);
 
+  const handleRowClick = (call: any) => {
+    setSelectedCall(call);
+    setDialogOpen(true);
+    setActiveTab("summary"); // Reset to summary tab when opening dialog
+  };
+
+  const handleEditClick = (call: any) => {
+    setSelectedCall(call);
+    setEditingCallData({
+      appointment_status: call.appointment_status || '',
+      appointment_date: call.appointment_date || '',
+      appointment_time: call.appointment_time || '',
+      notes: call.notes || ''
+    });
+    setEditDialogOpen(true);
+  };
+
   return (
     <div>
       <div className="flex flex-col mb-6">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-          <Input
-            placeholder="Search calls..."
-            className="pl-10"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
+        <div className="flex justify-between items-center mb-4">
+          <div className="relative flex-1 max-w-md">
+            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+            <Input
+              placeholder="Search calls..."
+              className="pl-10"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+            />
+          </div>
+          <Button 
+            variant="outline"
+            onClick={refreshCalls || fetchCalls}
+            disabled={loading}
+            size="sm"
+          >
+            Refresh Calls
+          </Button>
         </div>
       </div>
       
@@ -474,14 +499,14 @@ const CallLogsTab = ({
         </Table>
       </div>
 
-      {/* Call Details Dialog */}
+      {/* Call Details Dialog with improved audio player */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               Call Details
               {selectedCall && (
-                <Badge className={getStatusColor(selectedCall.call_status)}>
+                <Badge className={`${getStatusColor(selectedCall.call_status)}`}>
                   {selectedCall?.call_status}
                 </Badge>
               )}
@@ -556,32 +581,18 @@ const CallLogsTab = ({
                             Audio Recording
                           </h3>
                           <div className="flex flex-col gap-3">
-                            <div className="flex items-center gap-2">
-                              <Button 
-                                variant="outline" 
-                                size="sm" 
-                                className="flex items-center gap-1"
-                                onClick={toggleAudio}
-                              >
-                                {playingAudio ? (
-                                  <>
-                                    <span>Pause</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Play className="h-3 w-3" />
-                                    <span>Play</span>
-                                  </>
-                                )}
-                              </Button>
-                              <div className="text-sm text-gray-500">
-                                {formatDuration(selectedCall)} duration
-                              </div>
-                            </div>
                             <audio 
                               controls 
                               src={selectedCall.recording_url}
                               className="w-full rounded-md shadow-sm"
+                              ref={(audio) => {
+                                if (audio && !audioElement) {
+                                  setAudioElement(audio);
+                                }
+                              }}
+                              onPlay={() => setPlayingAudio(true)}
+                              onPause={() => setPlayingAudio(false)}
+                              onEnded={() => setPlayingAudio(false)}
                             >
                               Your browser does not support the audio element.
                             </audio>
@@ -591,7 +602,7 @@ const CallLogsTab = ({
                       
                       <div className="bg-gray-50 p-4 rounded-md">
                         <h3 className="font-medium mb-2 text-gray-700">Call Summary</h3>
-                        <p className="text-gray-600">{getSummary(selectedCall)}</p>
+                        <p className="text-gray-600 whitespace-pre-line">{getSummary(selectedCall)}</p>
                       </div>
                       
                       {selectedCall.user_sentiment && (
@@ -613,12 +624,12 @@ const CallLogsTab = ({
                   <TabsContent value="transcript" className="overflow-auto max-h-[50vh] px-1">
                     {selectedCall.transcript ? (
                       <div className="bg-gray-50 p-4 rounded-md">
-                        <h3 className="font-medium mb-2 text-gray-700">Transcript</h3>
-                        <div className="space-y-3">
+                        <h3 className="font-medium mb-4 text-gray-700">Transcript</h3>
+                        <div className="space-y-4">
                           {selectedCall.transcript.split(/(?<=[.!?])\s+/).filter((line: string) => line.trim().length > 0).map((line: string, index: number) => (
-                            <div key={index} className="p-2 rounded hover:bg-gray-100 transition-colors">
+                            <div key={index} className="p-3 rounded-lg bg-white border border-gray-100 shadow-sm hover:border-purple-200 transition-colors">
                               <div className="flex gap-2">
-                                <span className="text-gray-400 text-xs mt-1">{index + 1}.</span>
+                                <span className="text-purple-500 text-xs font-medium mt-1 bg-purple-50 px-2 py-1 rounded-full">{index + 1}</span>
                                 <p className="text-gray-700">{line.trim()}</p>
                               </div>
                             </div>
@@ -651,7 +662,7 @@ const CallLogsTab = ({
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Close
                 </Button>
-                <Button onClick={() => {
+                <Button onClick={()={() => {
                   setDialogOpen(false);
                   handleEditClick(selectedCall);
                 }}>
@@ -663,7 +674,7 @@ const CallLogsTab = ({
         </DialogContent>
       </Dialog>
       
-      {/* Edit Call Dialog */}
+      {/* Edit Call Dialog - keep existing code */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="w-full max-w-md">
           <DialogHeader>

@@ -5,7 +5,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogIn, Mail, Lock } from "lucide-react";
+import { LogIn, Mail, Lock, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 const LoginForm = () => {
@@ -30,8 +30,12 @@ const LoginForm = () => {
       const success = await login(email, password);
       if (success) {
         navigate("/");
+      } else {
+        // Login function already shows error toast
+        setIsLoading(false);
       }
-    } finally {
+    } catch (error) {
+      console.error("Login error:", error);
       setIsLoading(false);
     }
   };
@@ -49,6 +53,7 @@ const LoginForm = () => {
             className="pl-10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            disabled={isLoading}
           />
         </div>
       </div>
@@ -63,13 +68,14 @@ const LoginForm = () => {
             className="pl-10"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            disabled={isLoading}
           />
         </div>
       </div>
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? (
           <>
-            <span className="animate-spin mr-2">↻</span>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Signing In...
           </>
         ) : (

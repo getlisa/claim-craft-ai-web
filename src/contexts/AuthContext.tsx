@@ -38,6 +38,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Check current auth status when the app loads
     const checkAuth = async () => {
       try {
+        setIsLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         
         if (user) {
@@ -54,9 +55,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (profile?.agent_id) {
             setAgentId(profile.agent_id);
           }
+        } else {
+          setIsAuthenticated(false);
+          setUserEmail(null);
+          setAgentId("");
         }
       } catch (error) {
         console.error("Auth check error:", error);
+        setIsAuthenticated(false);
       } finally {
         setIsLoading(false);
       }
@@ -79,10 +85,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (profile?.agent_id) {
             setAgentId(profile.agent_id);
           }
+          setIsLoading(false);
         } else {
           setIsAuthenticated(false);
           setUserEmail(null);
           setAgentId("");
+          setIsLoading(false);
         }
       }
     );
@@ -175,6 +183,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -182,6 +191,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (error) {
         toast.error(error.message || "Login failed");
+        setIsLoading(false);
         return false;
       }
       
@@ -203,18 +213,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         toast.success("Login successful!");
+        setIsLoading(false);
         return true;
       }
       
+      setIsLoading(false);
       return false;
     } catch (error: any) {
       toast.error(error.message || "Login failed");
+      setIsLoading(false);
       return false;
     }
   };
 
   const logout = async () => {
     try {
+      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -224,6 +238,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       toast.success("You have been logged out");
     } catch (error: any) {
       toast.error(error.message || "Logout failed");
+    } finally {
+      setIsLoading(false);
     }
   };
 
