@@ -1,6 +1,5 @@
 
 import React from "react";
-import Header from "../Header";
 import { Calendar, Table, Headphones, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -28,18 +27,17 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <div className="flex-1 flex flex-col md:flex-row">
-        {/* Sidebar */}
-        <div className="w-full md:w-64 bg-white shadow-sm md:shadow-md md:border-r md:border-gray-100 p-4 md:min-h-screen">
-          <div className="flex items-center gap-2 mb-6">
-            <div className="bg-purple-600 p-2 rounded-full">
-              <Headphones className="h-5 w-5 text-white" />
-            </div>
+        {/* Sticky Sidebar */}
+        <div className="w-full md:w-64 bg-white shadow-sm md:shadow-md md:border-r md:border-gray-100 md:fixed md:h-screen flex flex-col">
+          {/* Sidebar Header */}
+          <div className="p-4">
             <h1 className="text-xl font-bold">
               {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
             </h1>
           </div>
           
-          <div className="space-y-1.5">
+          {/* Sidebar Navigation */}
+          <div className="flex-1 p-4 space-y-1.5">
             <Button
               variant={activeTab === "dashboard" ? "default" : "ghost"}
               className={`w-full justify-start ${
@@ -77,13 +75,12 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
               Appointments
             </Button>
           </div>
-
-          <Separator className="my-4" />
-
-          <div className="pt-2 space-y-4">
+          
+          {/* Footer with Email and Sign Out */}
+          <div className="mt-auto p-4 border-t border-gray-100">
             {userEmail && (
-              <div className="rounded-lg bg-gray-50 p-3">
-                <p className="text-sm font-medium">{userEmail}</p>
+              <div className="rounded-lg bg-gray-50 p-3 mb-3">
+                <p className="text-sm font-medium truncate">{userEmail}</p>
               </div>
             )}
             
@@ -98,9 +95,8 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
           </div>
         </div>
         
-        {/* Main content */}
-        <div className="flex-1 p-6 md:p-8 overflow-auto">
-          <Header />
+        {/* Main content with left margin to accommodate fixed sidebar */}
+        <div className="flex-1 p-6 md:p-8 md:ml-64">
           {children}
         </div>
       </div>

@@ -22,6 +22,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
 
 interface AppointmentsTabProps {
   initialCalls?: any[];
@@ -42,6 +44,58 @@ const AppointmentsTab = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('all');
+  const [timeFilter, setTimeFilter] = useState('all');
+  const [callerFilter, setCallerFilter] = useState('');
+  const { agentId } = useAuth();
+
+  // Directly fetch appointments from database to ensure data is visible
+  const fetchAppointments = async () => {
+    try {
+      setIsLoading(true);
+      
+      if (!agentId) {
+        toast.error("No agent ID found");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Fetch all calls that have appointment data
+      const { data, error } = await supabase
+        .from('call_logs')
+        .select('*')
+        .eq('agent_id', agentId)
+        .not('appointment_date', 'is', null);
+      
+      if (error) {
+        console.error("Error fetching appointments:", error);
+        toast.error("Failed to load appointments");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (data && data.length > 0) {
+        // Sort by appointment date, most recent first
+        const sorted = data.sort((a, b) => {
+          const dateA = new Date(`${a.appointment_date} ${a.appointment_time || '00:00'}`).getTime();
+          const dateB = new Date(`${b.appointment_date} ${b.appointment_time || '00:00'}`).getTime();
+          return dateA - dateB; // Ascending order (upcoming first)
+        });
+        
+        setAppointments(sorted);
+        setFilteredAppointments(sorted);
+        toast.success(`Loaded ${sorted.length} appointments`);
+      } else {
+        setAppointments([]);
+        setFilteredAppointments([]);
+      }
+      
+      setIsLoading(false);
+    } catch (err) {
+      console.error("Error in fetchAppointments:", err);
+      toast.error("Failed to load appointments");
+      setIsLoading(false);
+    }
+  };
 
   // Process calls data to extract only scheduled appointments
   useEffect(() => {
@@ -58,10 +112,13 @@ const AppointmentsTab = ({
       setAppointments(scheduledAppointments);
       setFilteredAppointments(scheduledAppointments);
       setIsLoading(false);
+    } else if (dataLoaded && !initialLoading) {
+      // If no initial calls but data is loaded, fetch directly
+      fetchAppointments();
     } else {
       setIsLoading(initialLoading);
     }
-  }, [initialCalls, initialLoading]);
+  }, [initialCalls, initialLoading, dataLoaded]);
 
   // Apply filters
   useEffect(() => {
@@ -80,7 +137,7 @@ const AppointmentsTab = ({
     // Apply status filter
     if (statusFilter !== 'all') {
       result = result.filter(appointment => 
-        appointment.appointment_status.toLowerCase() === statusFilter.toLowerCase()
+        appointment.appointment_status?.toLowerCase() === statusFilter.toLowerCase()
       );
     }
     
@@ -117,8 +174,38 @@ const AppointmentsTab = ({
       });
     }
     
+    // Apply time filter
+    if (timeFilter !== 'all') {
+      result = result.filter(appointment => {
+        if (!appointment.appointment_time) return false;
+        
+        const time = appointment.appointment_time;
+        const hour = parseInt(time.split(':')[0]);
+        
+        switch (timeFilter) {
+          case 'morning':
+            return hour >= 5 && hour < 12;
+          case 'afternoon':
+            return hour >= 12 && hour < 17;
+          case 'evening':
+            return hour >= 17 && hour < 21;
+          case 'night':
+            return hour >= 21 || hour < 5;
+          default:
+            return true;
+        }
+      });
+    }
+    
+    // Apply caller filter
+    if (callerFilter) {
+      result = result.filter(appointment => 
+        appointment.caller_phone_number && appointment.caller_phone_number.includes(callerFilter)
+      );
+    }
+    
     setFilteredAppointments(result);
-  }, [appointments, searchQuery, statusFilter, dateFilter]);
+  }, [appointments, searchQuery, statusFilter, dateFilter, timeFilter, callerFilter]);
 
   const getAppointmentStatusColor = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -135,30 +222,29 @@ const AppointmentsTab = ({
     }
   };
 
-  const playRecording = (callId: string) => {
-    // In a real implementation, this would play the recording
-    console.log(`Playing recording for call ${callId}`);
-    toast.info(`Playing recording for call ${callId}`);
+  const playRecording = (callId: string, recordingUrl: string) => {
+    if (recordingUrl) {
+      // Create audio element and play recording
+      const audio = new Audio(recordingUrl);
+      audio.play().catch(error => {
+        console.error("Audio playback error:", error);
+        toast.error("Failed to play recording");
+      });
+    } else {
+      toast.info(`No recording available for call ${callId}`);
+    }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-        <span className="ml-2 text-lg text-gray-600">Loading appointments...</span>
-      </div>
-    );
-  }
+  const handleRefresh = async () => {
+    if (refreshCalls) {
+      await refreshCalls();
+    } else {
+      await fetchAppointments();
+    }
+  };
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold tracking-tight">Scheduled Appointments</h1>
-        <p className="text-muted-foreground">
-          View and manage all your upcoming appointments
-        </p>
-      </div>
-      
       {/* Filters */}
       <Card className="mb-6">
         <CardContent className="pt-6">
@@ -205,6 +291,22 @@ const AppointmentsTab = ({
               </SelectContent>
             </Select>
             
+            <Select
+              value={timeFilter}
+              onValueChange={setTimeFilter}
+            >
+              <SelectTrigger className="w-full md:w-[180px]">
+                <SelectValue placeholder="Filter by time" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Times</SelectItem>
+                <SelectItem value="morning">Morning (5am-12pm)</SelectItem>
+                <SelectItem value="afternoon">Afternoon (12pm-5pm)</SelectItem>
+                <SelectItem value="evening">Evening (5pm-9pm)</SelectItem>
+                <SelectItem value="night">Night (9pm-5am)</SelectItem>
+              </SelectContent>
+            </Select>
+            
             <Button 
               variant="outline" 
               className="flex-shrink-0"
@@ -212,6 +314,8 @@ const AppointmentsTab = ({
                 setSearchQuery('');
                 setStatusFilter('all');
                 setDateFilter('all');
+                setTimeFilter('all');
+                setCallerFilter('');
               }}
             >
               Clear Filters
@@ -220,7 +324,12 @@ const AppointmentsTab = ({
         </CardContent>
       </Card>
       
-      {filteredAppointments.length === 0 ? (
+      {isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+          <span className="ml-2 text-lg text-gray-600">Loading appointments...</span>
+        </div>
+      ) : filteredAppointments.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center h-64">
             <Calendar className="h-16 w-16 text-gray-300 mb-4" />
@@ -231,7 +340,7 @@ const AppointmentsTab = ({
                 : "You don't have any scheduled appointments yet."}
             </p>
             <Button 
-              onClick={() => refreshCalls && refreshCalls()}
+              onClick={handleRefresh}
               className="mt-4"
               variant="outline"
             >
@@ -263,7 +372,7 @@ const AppointmentsTab = ({
                       </TableCell>
                       <TableCell>
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAppointmentStatusColor(appointment.appointment_status)}`}>
-                          {appointment.appointment_status}
+                          {appointment.appointment_status || "unknown"}
                         </span>
                       </TableCell>
                       <TableCell>
@@ -277,7 +386,7 @@ const AppointmentsTab = ({
                           size="sm" 
                           variant="ghost"
                           className="rounded-full w-8 h-8 p-0"
-                          onClick={() => playRecording(appointment.call_id)}
+                          onClick={() => playRecording(appointment.call_id, appointment.recording_url)}
                         >
                           <Play className="h-4 w-4 text-purple-600" />
                         </Button>
@@ -293,7 +402,7 @@ const AppointmentsTab = ({
 
       <div className="flex justify-center mt-6">
         <Button 
-          onClick={() => refreshCalls && refreshCalls()}
+          onClick={handleRefresh}
           className="bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white px-8 py-2 rounded-full shadow-lg transition-all flex items-center gap-2"
           disabled={isLoading}
         >
