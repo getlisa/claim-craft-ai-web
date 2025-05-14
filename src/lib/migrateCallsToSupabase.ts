@@ -89,7 +89,27 @@ export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> =>
     }
 
     const data = await response.json();
-    return Array.isArray(data) ? data : [];
+    
+    // Automatically save all fetched calls to the database
+    const calls = Array.isArray(data) ? data : [];
+    if (calls.length > 0) {
+      for (const call of calls) {
+        // Prepare call data with additional fields
+        const callData: CallData = {
+          ...call,
+          agent_id: agentId,
+          // Extract sentiment and success status if available
+          user_sentiment: call.call_analysis?.user_sentiment || undefined,
+          call_successful: call.call_analysis?.call_successful || undefined,
+        };
+        
+        // Save each call to Supabase without waiting for all to complete
+        saveCallToSupabase(callData)
+          .catch(error => console.error("Error auto-saving call:", error));
+      }
+    }
+    
+    return calls;
   } catch (error) {
     console.error("Error fetching calls from API:", error);
     throw error;
