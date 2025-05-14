@@ -95,22 +95,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const register = async (email: string, password: string, newAgentId: string) => {
     try {
-      // Using signUp with auto-confirm enabled in the admin settings
+      // First create the user without email confirmation requirement
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        options: {
-          emailRedirectTo: window.location.origin,
-          // Important: This tells Supabase to automatically confirm this user
-          data: {
-            email_confirmed: true
-          }
-        }
       });
       
       if (error) throw error;
       
       if (data.user) {
+        // Manually update user to set them as confirmed
+        const { error: updateError } = await supabase.auth.updateUser({
+          data: { email_confirmed: true }
+        });
+        
+        if (updateError) throw updateError;
+        
         // Create a profile record with the agent ID
         const { error: profileError } = await supabase
           .from('user_profiles')
