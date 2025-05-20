@@ -133,6 +133,7 @@ export async function processCallTranscript(call: any, agentId: string) {
       
       if (extractedData.appointmentDate || extractedData.appointmentTime) {
         // We have appointment data - update in Supabase database directly
+        // IMPORTANT: Remove the confidence field as it doesn't exist in the database schema
         const { data, error } = await supabase
           .from('call_logs')
           .upsert({
@@ -141,7 +142,6 @@ export async function processCallTranscript(call: any, agentId: string) {
             appointment_date: extractedData.appointmentDate,
             appointment_time: extractedData.appointmentTime,
             appointment_status: 'in-process', // Default status for extracted appointments
-            confidence: extractedData.confidence,
             from_number: call.from_number || "",
             updated_at: new Date().toISOString()
           })
