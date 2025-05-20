@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
@@ -168,6 +167,7 @@ const Dashboard = () => {
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
             refreshCalls={fetchCalls}
+            updateCall={updateCall}
           />
         }
       </div>
