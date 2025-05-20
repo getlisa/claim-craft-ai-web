@@ -107,6 +107,9 @@ const Dashboard = () => {
     } catch (error: any) {
       console.error("Failed to load data:", error);
       toast.error("Could not load call data. Please try again.");
+      // Set some default empty state so UI can still render
+      setCalls([]);
+      setInitialDataLoaded(true);
     } finally {
       setLoading(false);
     }
