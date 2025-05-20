@@ -5,7 +5,8 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CallList from "./CallList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
+import ApiKeySettings from "./ApiKeySettings";
 
 interface DashboardTabProps {
   initialCalls: any[];
@@ -25,6 +26,7 @@ const DashboardTab = ({
   const [loading, setLoading] = useState(initialLoading);
   const [calls, setCalls] = useState<any[]>(initialCalls);
   const [activeTab, setActiveTab] = useState("all");
+  const [showSettings, setShowSettings] = useState(false);
   
   // Update local state when props change
   useEffect(() => {
@@ -72,11 +74,27 @@ const DashboardTab = ({
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Your Dashboard</h2>
-        <Button onClick={handleRefresh} disabled={loading} variant="outline" className="flex gap-2 items-center">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
-          Refresh Calls
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => setShowSettings(!showSettings)} 
+            variant="outline" 
+            className="flex gap-2 items-center"
+          >
+            <SettingsIcon className="h-4 w-4" />
+            {showSettings ? "Hide Settings" : "Settings"}
+          </Button>
+          <Button onClick={handleRefresh} disabled={loading} variant="outline" className="flex gap-2 items-center">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Refresh Calls
+          </Button>
+        </div>
       </div>
+      
+      {showSettings && (
+        <div className="mb-6">
+          <ApiKeySettings />
+        </div>
+      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>

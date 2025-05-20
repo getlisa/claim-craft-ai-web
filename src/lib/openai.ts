@@ -41,13 +41,23 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
       If multiple dates or times are mentioned, choose the one most likely to be the final agreed appointment.
     `;
 
-    // Use import.meta.env for Vite environment variables instead of process.env
-    const apiKey = import.meta.env.VITE_OPENAI_API_KEY || '';
+    // Check for API key in localStorage first (temporary storage for testing)
+    let apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || '';
     
     if (!apiKey) {
       console.error("OpenAI API key is missing");
       toast.error("OpenAI API key is not configured");
-      return defaultResponse;
+      
+      // Prompt user for API key
+      apiKey = prompt("Please enter your OpenAI API key to extract appointment details:") || '';
+      
+      if (apiKey) {
+        // Store temporarily in localStorage
+        localStorage.setItem('openai_api_key', apiKey);
+        toast.success("API key saved temporarily");
+      } else {
+        return defaultResponse;
+      }
     }
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
