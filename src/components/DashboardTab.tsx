@@ -10,7 +10,7 @@ import {
   ChartContainer, 
   ChartTooltip
 } from "@/components/ui/chart";
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from "recharts";
 
 interface DashboardTabProps {
   initialCalls: any[];
@@ -40,7 +40,6 @@ const DashboardTab = ({
 }: DashboardTabProps) => {
   const [loading, setLoading] = useState(initialLoading);
   const [calls, setCalls] = useState<any[]>(initialCalls);
-  const [activeTab, setActiveTab] = useState("all");
   
   // Update local state when props change
   useEffect(() => {
@@ -81,28 +80,28 @@ const DashboardTab = ({
     { name: "Unknown", value: sentimentCounts.unknown, color: "#9CA3AF" }
   ];
   
-  // Filter calls based on active tab
-  const filteredCalls = calls.filter(call => {
-    if (activeTab === "all") return true;
+  // Custom renderer for the pie chart labels
+  const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }: any) => {
+    if (value === 0) return null;
     
-    if (activeTab === "appointments") {
-      return call.appointment_status === "scheduled";
-    }
-    
-    if (activeTab === "completed") {
-      return call.call_status === "completed";
-    }
-    
-    if (activeTab === "recent") {
-      // Show calls from the last 7 days
-      const callDate = new Date(call.start_timestamp);
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-      return callDate >= sevenDaysAgo;
-    }
-    
-    return true;
-  });
+    const RADIAN = Math.PI / 180;
+    const radius = outerRadius * 0.8;
+    const x = cx + radius * Math.cos(-midAngle * RADIAN);
+    const y = cy + radius * Math.sin(-midAngle * RADIAN);
+
+    return (
+      <text 
+        x={x} 
+        y={y} 
+        fill="#fff" 
+        textAnchor={x > cx ? 'start' : 'end'} 
+        dominantBaseline="central"
+        fontSize="12"
+      >
+        {`${name} (${value})`}
+      </text>
+    );
+  };
   
   return (
     <div className="space-y-6">
@@ -116,7 +115,7 @@ const DashboardTab = ({
         </div>
       </div>
       
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium">Total Calls</CardTitle>
@@ -152,7 +151,7 @@ const DashboardTab = ({
         </Card>
       </div>
       
-      {/* Sentiment Analysis Chart */}
+      {/* Sentiment Analysis Pie Chart */}
       <Card>
         <CardHeader>
           <CardTitle>User Sentiment Analysis</CardTitle>
@@ -167,34 +166,40 @@ const DashboardTab = ({
               unknown: { theme: { light: "#9CA3AF", dark: "#9CA3AF" } }
             }}
           >
-            <BarChart
-              data={sentimentData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="name" />
-              <YAxis allowDecimals={false} />
-              <ChartTooltip
-                content={({ active, payload }) => {
-                  if (active && payload && payload.length) {
-                    return (
-                      <div className="rounded-lg border bg-background p-2 shadow-sm">
-                        <div className="font-medium">{payload[0].name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {payload[0].value} calls
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={sentimentData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={renderCustomizedLabel}
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="value"
+                >
+                  {sentimentData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Pie>
+                <Legend />
+                <ChartTooltip
+                  content={({ active, payload }) => {
+                    if (active && payload && payload.length) {
+                      return (
+                        <div className="rounded-lg border bg-background p-2 shadow-sm">
+                          <div className="font-medium">{payload[0].name}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {payload[0].value} calls
+                          </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  return null;
-                }}
-              />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
-                {sentimentData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Bar>
-            </BarChart>
+                      );
+                    }
+                    return null;
+                  }}
+                />
+              </PieChart>
+            </ResponsiveContainer>
           </ChartContainer>
         </CardContent>
       </Card>
@@ -209,34 +214,8 @@ const DashboardTab = ({
           <CallList calls={latestCalls} loading={loading} updateCall={updateCall} />
         </CardContent>
       </Card>
-      
-      <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="all">All Calls</TabsTrigger>
-          <TabsTrigger value="appointments">Appointments</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
-          <TabsTrigger value="recent">Recent</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="all" className="space-y-4">
-          <CallList calls={filteredCalls} loading={loading} updateCall={updateCall} />
-        </TabsContent>
-        
-        <TabsContent value="appointments" className="space-y-4">
-          <CallList calls={filteredCalls} loading={loading} updateCall={updateCall} />
-        </TabsContent>
-        
-        <TabsContent value="completed" className="space-y-4">
-          <CallList calls={filteredCalls} loading={loading} updateCall={updateCall} />
-        </TabsContent>
-        
-        <TabsContent value="recent" className="space-y-4">
-          <CallList calls={filteredCalls} loading={loading} updateCall={updateCall} />
-        </TabsContent>
-      </Tabs>
     </div>
   );
 };
 
 export default DashboardTab;
-
