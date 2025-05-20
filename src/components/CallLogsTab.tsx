@@ -398,6 +398,164 @@ const CallLogsTab = ({
     }
   };
 
+  // Add missing functionality for filtering
+  const handleFilterChange = (filterName: string, value: string) => {
+    setFilters(prev => ({ ...prev, [filterName]: value }));
+    
+    if (value && value !== 'all') {
+      if (!activeFilters.includes(filterName)) {
+        setActiveFilters(prev => [...prev, filterName]);
+      }
+    } else {
+      setActiveFilters(prev => prev.filter(f => f !== filterName));
+    }
+  };
+  
+  const clearFilter = (filterName: string) => {
+    setFilters(prev => ({ ...prev, [filterName]: filterName.includes('date') ? "" : "all" }));
+    setActiveFilters(prev => prev.filter(f => f !== filterName));
+  };
+  
+  const clearAllFilters = () => {
+    setFilters({
+      callStatus: "all",
+      appointmentStatus: "all",
+      dateFrom: "",
+      dateTo: "",
+      minDuration: "",
+      maxDuration: ""
+    });
+    setActiveFilters([]);
+  };
+  
+  const getFilterLabel = (filterName: string) => {
+    switch (filterName) {
+      case 'callStatus': return 'Call Status';
+      case 'appointmentStatus': return 'Appointment';
+      case 'dateFrom': return 'From Date';
+      case 'dateTo': return 'To Date';
+      case 'minDuration': return 'Min Duration';
+      case 'maxDuration': return 'Max Duration';
+      default: return filterName;
+    }
+  };
+  
+  const getFilterDisplayValue = (filterName: string) => {
+    const value = filters[filterName as keyof typeof filters];
+    if (filterName === 'callStatus' || filterName === 'appointmentStatus') {
+      return value;
+    }
+    return value || 'Set';
+  };
+  
+  // Filter calls based on search query and advanced filters
+  const filteredCalls = calls.filter(call => {
+    // Text search filter
+    const searchTerms = searchQuery.toLowerCase().split(' ').filter(term => term);
+    if (searchTerms.length > 0) {
+      const searchableFields = [
+        call.from_number || '',
+        call.call_id || '',
+        call.call_status || '',
+        call.appointment_status || '',
+        call.notes || ''
+      ];
+      
+      const matchesSearch = searchTerms.every(term => 
+        searchableFields.some(field => field.toLowerCase().includes(term))
+      );
+      
+      if (!matchesSearch) return false;
+    }
+    
+    // Advanced filters
+    if (filters.callStatus !== "all" && call.call_status !== filters.callStatus) {
+      return false;
+    }
+    
+    if (filters.appointmentStatus !== "all" && call.appointment_status !== filters.appointmentStatus) {
+      return false;
+    }
+    
+    if (filters.dateFrom) {
+      const callDate = new Date(call.start_timestamp);
+      const fromDate = new Date(filters.dateFrom);
+      if (callDate < fromDate) return false;
+    }
+    
+    if (filters.dateTo) {
+      const callDate = new Date(call.start_timestamp);
+      const toDate = new Date(filters.dateTo);
+      toDate.setHours(23, 59, 59); // End of day
+      if (callDate > toDate) return false;
+    }
+    
+    if (filters.minDuration || filters.maxDuration) {
+      if (!call.start_timestamp || !call.end_timestamp) return false;
+      
+      const start = new Date(call.start_timestamp).getTime();
+      const end = new Date(call.end_timestamp).getTime();
+      const durationMinutes = (end - start) / 60000;
+      
+      if (filters.minDuration && durationMinutes < parseFloat(filters.minDuration)) {
+        return false;
+      }
+      
+      if (filters.maxDuration && durationMinutes > parseFloat(filters.maxDuration)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+  
+  const handleRowClick = (call: any) => {
+    setSelectedCall(call);
+    setDialogOpen(true);
+  };
+  
+  const handleEditClick = (call: any) => {
+    setSelectedCall(call);
+    setEditingCallData({
+      appointment_status: call.appointment_status || '',
+      appointment_date: call.appointment_date || '',
+      appointment_time: call.appointment_time || '',
+      notes: call.notes || ''
+    });
+    setEditDialogOpen(true);
+  };
+  
+  const getAppointmentStatusColor = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "completed":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "in-process":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+  
+  const getSummary = (call: any) => {
+    if (call.call_analysis?.call_summary) {
+      return call.call_analysis.call_summary;
+    }
+    
+    if (call.summary) return call.summary;
+    
+    if (call.transcript) {
+      // Generate a simple summary based on first few words
+      const words = call.transcript.split(' ').slice(0, 30);
+      return `${words.join(' ')}... [Automatically generated summary]`;
+    }
+    
+    return "No summary available for this call.";
+  };
+
   return (
     <div>
       <div className="flex flex-col mb-6">

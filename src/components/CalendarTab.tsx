@@ -25,12 +25,15 @@ interface CalendarTabProps {
   initialCalls?: any[];
   initialLoading?: boolean;
   dataLoaded?: boolean;
+  refreshCalls?: () => Promise<void>;  // Added this prop
+  updateCall?: (updatedCall: any) => void; // Optional prop for consistency
 }
 
 const CalendarTab = ({
   initialCalls = [],
   initialLoading = false,
   dataLoaded = false,
+  refreshCalls, // Added this prop
 }: CalendarTabProps) => {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [events, setEvents] = useState<any[]>([]);
