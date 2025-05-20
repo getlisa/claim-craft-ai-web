@@ -84,6 +84,18 @@ const Dashboard = () => {
     }
   }, [agentId, isAuthenticated, fetchCalls]);
 
+  // Create a function to update a specific call in the calls array
+  const updateCall = useCallback((updatedCall: any) => {
+    if (!updatedCall || !updatedCall.call_id) return;
+    
+    setCalls(prevCalls => prevCalls.map(call => 
+      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall } : call
+    ));
+    
+    // Show a feedback toast
+    toast.success("Call data updated successfully");
+  }, []);
+
   if (loading && !initialDataLoaded) {
     return (
       <AppLayout activeTab={activeTab} setActiveTab={setActiveTab}>
@@ -103,6 +115,8 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
+            updateCall={updateCall}
           />
         }
         {activeTab === "call-logs" && 
@@ -110,6 +124,7 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
           />
         }
         {activeTab === "appointments" && 
@@ -117,6 +132,7 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
           />
         }
         {activeTab === "calendar" && 
@@ -124,6 +140,7 @@ const Dashboard = () => {
             initialCalls={calls} 
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
           />
         }
       </div>

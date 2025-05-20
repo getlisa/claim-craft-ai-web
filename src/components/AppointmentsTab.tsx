@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,6 +160,8 @@ const AppointmentsTab = ({
       nextMonth.setMonth(nextMonth.getMonth() + 1);
       
       result = result.filter(appointment => {
+        if (!appointment.appointment_date) return false;
+        
         const appointmentDate = new Date(appointment.appointment_date);
         appointmentDate.setHours(0, 0, 0, 0);
         
@@ -267,6 +270,16 @@ const AppointmentsTab = ({
     }
   };
 
+  // Handle refresh button click to update appointment data
+  const handleRefresh = async () => {
+    if (refreshCalls) {
+      await refreshCalls();
+    } else {
+      await fetchAppointments();
+    }
+    toast.success("Appointments refreshed");
+  };
+
   return (
     <div>
       {/* Filters */}
@@ -331,18 +344,34 @@ const AppointmentsTab = ({
               </SelectContent>
             </Select>
             
-            <Button 
-              variant="outline" 
-              className="flex-shrink-0"
-              onClick={() => {
-                setSearchQuery('');
-                setStatusFilter('all');
-                setDateFilter('all');
-                setTimeFilter('all');
-              }}
-            >
-              Clear Filters
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                className="flex-shrink-0"
+                onClick={() => {
+                  setSearchQuery('');
+                  setStatusFilter('all');
+                  setDateFilter('all');
+                  setTimeFilter('all');
+                }}
+              >
+                Clear Filters
+              </Button>
+              
+              <Button 
+                variant="default" 
+                className="flex-shrink-0"
+                onClick={handleRefresh}
+                disabled={isLoading}
+              >
+                {isLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Calendar className="h-4 w-4 mr-2" />
+                )}
+                Refresh
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

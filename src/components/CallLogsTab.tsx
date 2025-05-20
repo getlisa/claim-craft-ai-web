@@ -83,13 +83,12 @@ const CallLogsTab = ({
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [filterDialogOpen, setFilterDialogOpen] = useState(false);
   
-  // Load calls from props or fetch them
+  // Update calls when initialCalls changes
   useEffect(() => {
     if (initialCalls.length > 0) {
       setCalls(initialCalls);
       setLoading(false);
     } else if (dataLoaded && !initialLoading) {
-      // Data loaded but no calls passed in props, fetch data
       fetchCalls();
     }
   }, [initialCalls, dataLoaded, initialLoading]);
@@ -104,10 +103,7 @@ const CallLogsTab = ({
     setError(null);
     
     try {
-      // First, fetch calls directly from API
       const apiCalls = await fetchCallsFromApi(agentId);
-      
-      // Then fetch ALL calls from Supabase
       const { data: dbCalls, error: dbError } = await supabase
         .from('call_logs')
         .select('*')
@@ -115,7 +111,6 @@ const CallLogsTab = ({
 
       if (dbError) throw dbError;
       
-      // Create a map of database calls by call_id
       const dbCallsMap = new Map();
       if (dbCalls && dbCalls.length > 0) {
         dbCalls.forEach(dbCall => {
@@ -123,11 +118,9 @@ const CallLogsTab = ({
         });
       }
       
-      // Merge API calls with database data
       const mergedCalls = apiCalls.map(apiCall => {
         const dbCall = dbCallsMap.get(apiCall.call_id);
         if (dbCall) {
-          // Merge API call with database data, preferring database values
           return {
             ...apiCall,
             appointment_status: dbCall.appointment_status || apiCall.appointment_status,
@@ -135,7 +128,6 @@ const CallLogsTab = ({
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
-            // Store the database ID for future updates
             id: dbCall.id
           };
         }
@@ -228,19 +220,15 @@ const CallLogsTab = ({
   };
 
   const getSummary = (call: any) => {
-    // First check if we have a call_analysis with call_summary
     if (call.call_analysis?.call_summary) {
       return call.call_analysis.call_summary;
     }
     
-    // Check for direct summary property
     if (call.summary) return call.summary;
     
-    // Check for quick_summary property as some API endpoints use this
     if (call.quick_summary) return call.quick_summary;
     
     if (call.transcript) {
-      // Generate a simple summary based on first few words
       const words = call.transcript.split(' ').slice(0, 30);
       return `${words.join(' ')}... [Automatically generated summary]`;
     }
@@ -248,7 +236,6 @@ const CallLogsTab = ({
     return "No summary available for this call.";
   };
 
-  // Function to handle audio playback
   const toggleAudio = (audioRef: HTMLAudioElement | null) => {
     if (!audioRef) return;
     
@@ -266,7 +253,6 @@ const CallLogsTab = ({
     }
   };
 
-  // Handle changes in appointment status and other call details
   const saveCallEdits = async () => {
     if (!selectedCall || !selectedCall.call_id) {
       toast.error("No call selected or call ID missing");
@@ -274,7 +260,6 @@ const CallLogsTab = ({
     }
     
     try {
-      // Prepare call data for saving
       const callData: CallData = {
         ...selectedCall,
         agent_id: agentId,
@@ -284,20 +269,29 @@ const CallLogsTab = ({
         notes: editingCallData.notes
       };
       
-      // Save to database
       const success = await saveCallToSupabase(callData);
       
       if (success) {
         toast.success("Call updated successfully");
         
-        // Update the call in the local state
-        setCalls(calls.map(call => 
+        const updatedSelectedCall = {
+          ...selectedCall,
+          ...editingCallData
+        };
+        setSelectedCall(updatedSelectedCall);
+        
+        setCalls(prevCalls => prevCalls.map(call => 
           call.call_id === selectedCall.call_id 
-            ? { ...call, ...editingCallData } 
+            ? {
+                ...call,
+                appointment_status: editingCallData.appointment_status,
+                appointment_date: editingCallData.appointment_date,
+                appointment_time: editingCallData.appointment_time,
+                notes: editingCallData.notes
+              } 
             : call
         ));
         
-        // If we have a refresh function from parent, call it to update all data
         if (refreshCalls) {
           await refreshCalls();
         }
@@ -312,7 +306,6 @@ const CallLogsTab = ({
     }
   };
 
-  // Initialize audio element when dialog opens with a call that has recording
   useEffect(() => {
     if (dialogOpen && selectedCall?.recording_url) {
       const audio = new Audio(selectedCall.recording_url);
@@ -341,7 +334,7 @@ const CallLogsTab = ({
   const handleRowClick = (call: any) => {
     setSelectedCall(call);
     setDialogOpen(true);
-    setActiveTab("summary"); // Reset to summary tab when opening dialog
+    setActiveTab("summary");
   };
 
   const handleEditClick = (call: any) => {
@@ -355,20 +348,16 @@ const CallLogsTab = ({
     setEditDialogOpen(true);
   };
   
-  // Custom function to safely handle potentially undefined values to avoid UI errors
   const safeValue = (value: string | undefined | null): string => {
-    return value || ""; // Return empty string if value is null or undefined
+    return value || "";
   };
   
-  // Advanced filtering handlers - Fixed to use "all" instead of empty string for filters
   const handleFilterChange = (key: string, value: string) => {
-    console.log(`Setting filter ${key} to value: ${value}`);
     setFilters({
       ...filters,
       [key]: value
     });
     
-    // Update active filters - only consider as active if not "all"
     if (value && value !== "all") {
       if (!activeFilters.includes(key)) {
         setActiveFilters([...activeFilters, key]);
@@ -416,33 +405,32 @@ const CallLogsTab = ({
       case "dateFrom": 
       case "dateTo":
         if (!filters[key]) return "";
-        return new Date(filters[key]).toLocaleDateString();
+        try {
+          return new Date(filters[key]).toLocaleDateString();
+        } catch (e) {
+          return "";
+        }
       case "minDuration":
       case "maxDuration":
-        return `${filters[key]} min`;
+        return filters[key] ? `${filters[key]} min` : "";
       default:
         return filters[key] === "all" ? "Any" : filters[key];
     }
   };
   
-  // Apply all filtering criteria
   const filteredCalls = calls.filter(call => {
-    // Text search
     if (searchQuery && !JSON.stringify(call).toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
 
-    // Call status filter
     if (filters.callStatus !== "all" && call.call_status !== filters.callStatus) {
       return false;
     }
 
-    // Appointment status filter
     if (filters.appointmentStatus !== "all" && call.appointment_status !== filters.appointmentStatus) {
       return false;
     }
 
-    // Date range filter
     if (filters.dateFrom) {
       const fromDate = new Date(filters.dateFrom);
       const callDate = new Date(call.start_timestamp);
@@ -453,14 +441,13 @@ const CallLogsTab = ({
 
     if (filters.dateTo) {
       const toDate = new Date(filters.dateTo);
-      toDate.setHours(23, 59, 59); // End of the day
+      toDate.setHours(23, 59, 59);
       const callDate = new Date(call.start_timestamp);
       if (callDate > toDate) {
         return false;
       }
     }
 
-    // Duration filter
     if (call.start_timestamp && call.end_timestamp) {
       const start = new Date(call.start_timestamp).getTime();
       const end = new Date(call.end_timestamp).getTime();
@@ -515,7 +502,6 @@ const CallLogsTab = ({
                   <h3 className="font-medium text-sm">Advanced Filters</h3>
                   <Separator />
                   
-                  {/* Call Status filter - Fixed to use "all" instead of empty string */}
                   <div className="space-y-2">
                     <Label htmlFor="call-status">Call Status</Label>
                     <Select 
@@ -534,7 +520,6 @@ const CallLogsTab = ({
                     </Select>
                   </div>
                   
-                  {/* Appointment Status filter - Fixed to use "all" instead of empty string */}
                   <div className="space-y-2">
                     <Label htmlFor="appointment-status">Appointment Status</Label>
                     <Select 
@@ -554,14 +539,13 @@ const CallLogsTab = ({
                     </Select>
                   </div>
                   
-                  {/* Date range filter */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
                       <Label htmlFor="date-from">From Date</Label>
                       <Input
                         id="date-from"
                         type="date"
-                        value={safeValue(filters.dateFrom)}
+                        value={filters.dateFrom}
                         onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
                       />
                     </div>
@@ -571,13 +555,12 @@ const CallLogsTab = ({
                       <Input
                         id="date-to"
                         type="date"
-                        value={safeValue(filters.dateTo)}
+                        value={filters.dateTo}
                         onChange={(e) => handleFilterChange("dateTo", e.target.value)}
                       />
                     </div>
                   </div>
                   
-                  {/* Duration filter */}
                   <div className="grid grid-cols-2 gap-2">
                     <div className="space-y-2">
                       <Label htmlFor="min-duration">Min Duration (min)</Label>
@@ -585,7 +568,7 @@ const CallLogsTab = ({
                         id="min-duration"
                         type="number"
                         min="0"
-                        value={safeValue(filters.minDuration)}
+                        value={filters.minDuration}
                         onChange={(e) => handleFilterChange("minDuration", e.target.value)}
                       />
                     </div>
@@ -596,7 +579,7 @@ const CallLogsTab = ({
                         id="max-duration"
                         type="number"
                         min="0"
-                        value={safeValue(filters.maxDuration)}
+                        value={filters.maxDuration}
                         onChange={(e) => handleFilterChange("maxDuration", e.target.value)}
                       />
                     </div>
@@ -622,7 +605,6 @@ const CallLogsTab = ({
           </div>
         </div>
         
-        {/* Active filters */}
         {activeFilters.length > 0 && (
           <div className="flex flex-wrap gap-2">
             {activeFilters.map(filter => (
@@ -646,7 +628,6 @@ const CallLogsTab = ({
           </div>
         )}
         
-        {/* Results count */}
         {activeFilters.length > 0 && (
           <div className="text-sm text-gray-500 mt-2">
             Showing {filteredCalls.length} of {calls.length} calls
@@ -709,7 +690,7 @@ const CallLogsTab = ({
               filteredCalls.map((call) => {
                 return (
                   <TableRow 
-                    key={call.id} 
+                    key={call.id || call.call_id} 
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleRowClick(call)}
                   >
@@ -778,7 +759,6 @@ const CallLogsTab = ({
         </Table>
       </div>
 
-      {/* Call Details Dialog with improved audio player */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="w-full max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
           <DialogHeader>
@@ -959,7 +939,6 @@ const CallLogsTab = ({
         </DialogContent>
       </Dialog>
       
-      {/* Edit Call Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
         <DialogContent className="w-full max-w-md">
           <DialogHeader>
