@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
@@ -46,6 +45,8 @@ const Dashboard = () => {
   const [processedCalls, setProcessedCalls] = useState<Set<string>>(new Set());
   const { agentId, isAuthenticated } = useAuth();
   const [lastKnownCallIds, setLastKnownCallIds] = useState<Set<string>>(new Set());
+  // Add lastFetchTime to prevent too frequent API calls
+  const [lastFetchTime, setLastFetchTime] = useState(0);
 
   // Create a fetchCalls function that can be used for initial load and refreshes
   const fetchCalls = useCallback(async () => {
@@ -54,7 +55,16 @@ const Dashboard = () => {
       return;
     }
     
+    // Prevent too frequent API calls (minimum 5 seconds between calls)
+    const now = Date.now();
+    if (now - lastFetchTime < 5000) {
+      console.log("Skipping fetch - too soon since last fetch");
+      return;
+    }
+    
+    setLastFetchTime(now);
     setLoading(true);
+    
     try {
       // Get calls from API
       const apiCalls = await fetchCallsFromApi(agentId);
@@ -130,7 +140,10 @@ const Dashboard = () => {
       setInitialDataLoaded(true);
       
       // Process transcripts with OpenAI in the background - only for unprocessed calls
-      processCallTranscripts(mergedCalls.filter(call => !call.processed));
+      // Use setTimeout to avoid blocking the UI thread
+      setTimeout(() => {
+        processCallTranscripts(mergedCalls.filter(call => !call.processed));
+      }, 1000);
       
       if (mergedCalls.length === 0) {
         toast.info("No calls found for this agent");
@@ -141,7 +154,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [agentId, initialDataLoaded, lastKnownCallIds]);
+  }, [agentId, initialDataLoaded, lastKnownCallIds, lastFetchTime]);
 
   // Process call transcripts to extract appointment details
   const processCallTranscripts = async (callsToProcess: Call[]) => {

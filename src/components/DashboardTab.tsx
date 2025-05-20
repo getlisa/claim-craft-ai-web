@@ -36,6 +36,8 @@ const DashboardTab = ({
   const [calls, setCalls] = useState<any[]>(initialCalls);
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [lastCallCount, setLastCallCount] = useState(initialCalls.length);
+  // Add a lastRefreshTime state to prevent too frequent refreshes
+  const [lastRefreshTime, setLastRefreshTime] = useState(Date.now());
   
   // Update local state when props change
   useEffect(() => {
@@ -61,7 +63,14 @@ const DashboardTab = ({
     
     if (autoRefresh) {
       intervalId = window.setInterval(async () => {
+        // Check if enough time has passed since last refresh (at least 25 seconds)
+        const now = Date.now();
+        if (now - lastRefreshTime < 25000) {
+          return; // Skip this refresh cycle if it's too soon
+        }
+        
         try {
+          setLastRefreshTime(now); // Update last refresh time
           await refreshCalls();
         } catch (error) {
           console.error("Error during auto-refresh:", error);
@@ -75,10 +84,18 @@ const DashboardTab = ({
         window.clearInterval(intervalId);
       }
     };
-  }, [autoRefresh, refreshCalls]);
+  }, [autoRefresh, refreshCalls, lastRefreshTime]);
   
   const handleRefresh = async () => {
+    // Prevent manual refresh if we just refreshed
+    const now = Date.now();
+    if (now - lastRefreshTime < 5000) {
+      toast.info("Please wait a few seconds before refreshing again");
+      return;
+    }
+    
     setLoading(true);
+    setLastRefreshTime(now);
     try {
       await refreshCalls();
       toast.success("Calls refreshed successfully");
