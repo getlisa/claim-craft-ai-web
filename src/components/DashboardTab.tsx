@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CallList from "./CallList";
-import { Loader2, RefreshCw, Bell } from "lucide-react";
+import { Loader2, RefreshCw, Bell, Phone } from "lucide-react";
 
 interface DashboardTabProps {
   initialCalls: any[];
@@ -134,7 +134,9 @@ const DashboardTab = ({
   const processedCalls = latestCalls.map(call => ({
     ...call,
     // If the CallList component uses call_id for display, we override it with formatted phone number
-    display_name: formatPhoneNumber(call.from_number)
+    display_name: formatPhoneNumber(call.from_number),
+    // Add an icon to display next to the phone number
+    icon: <Phone className="h-4 w-4 mr-1 text-gray-500" />
   }));
   
   return (
