@@ -1,5 +1,24 @@
+
 import { supabase } from "./supabase";
 import { v4 as uuidv4 } from 'uuid';
+
+export interface CallData {
+  call_id: string;
+  agent_id: string;
+  call_status?: string;
+  start_timestamp?: string;
+  end_timestamp?: string;
+  transcript?: string;
+  recording_url?: string;
+  call_type?: string;
+  from_number?: string;
+  call_analysis?: any;
+  appointment_status?: string;
+  appointment_date?: string;
+  appointment_time?: string;
+  notes?: string;
+  suggestedResponse?: string;
+}
 
 export async function migrateCallsToSupabase(agentId: string) {
   if (!agentId) {
@@ -127,3 +146,71 @@ export const updateCallDetails = async (callId: string, updates: any) => {
     throw error;
   }
 };
+
+// Add the missing saveCallToSupabase function that CallLogsTab.tsx is trying to import
+export const saveCallToSupabase = async (callData: CallData): Promise<boolean> => {
+  if (!callData.call_id || !callData.agent_id) {
+    console.error("Call ID and Agent ID are required");
+    return false;
+  }
+
+  try {
+    // Check if the call already exists in Supabase
+    const { data, error } = await supabase
+      .from('call_logs')
+      .select('id')
+      .eq('call_id', callData.call_id)
+      .eq('agent_id', callData.agent_id);
+
+    if (error) {
+      console.error("Error checking if call exists:", error);
+      return false;
+    }
+
+    // Clean the data object to remove any fields that don't exist in the database schema
+    const cleanedData = {
+      call_id: callData.call_id,
+      agent_id: callData.agent_id,
+      call_status: callData.call_status,
+      start_timestamp: callData.start_timestamp,
+      end_timestamp: callData.end_timestamp,
+      transcript: callData.transcript,
+      recording_url: callData.recording_url,
+      call_type: callData.call_type,
+      from_number: callData.from_number,
+      call_analysis: callData.call_analysis,
+      appointment_status: callData.appointment_status,
+      appointment_date: callData.appointment_date,
+      appointment_time: callData.appointment_time,
+      notes: callData.notes,
+      updated_at: new Date().toISOString()
+    };
+    
+    let result;
+    
+    if (data && data.length > 0) {
+      // Update the existing record
+      result = await supabase
+        .from('call_logs')
+        .update(cleanedData)
+        .eq('id', data[0].id);
+    } else {
+      // Insert a new record
+      cleanedData.created_at = new Date().toISOString();
+      result = await supabase
+        .from('call_logs')
+        .insert([cleanedData]);
+    }
+
+    if (result.error) {
+      console.error("Failed to save appointment data:", result.error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Failed to save call to Supabase:", error);
+    return false;
+  }
+};
+
