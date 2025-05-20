@@ -39,19 +39,22 @@ import {
 } from "./ui/popover";
 import { Separator } from "./ui/separator";
 import { saveCallToSupabase, fetchCallsFromApi, CallData } from "@/lib/migrateCallsToSupabase";
+import AppointmentExtractor from "./AppointmentExtractor";
 
 interface CallLogsTabProps {
   initialCalls?: any[];
   initialLoading?: boolean;
   dataLoaded?: boolean;
   refreshCalls?: () => Promise<void>;
+  updateCall?: (updatedCall: any) => void;
 }
 
 const CallLogsTab = ({
   initialCalls = [],
   initialLoading = false,
   dataLoaded = false,
-  refreshCalls
+  refreshCalls,
+  updateCall
 }: CallLogsTabProps) => {
   const [calls, setCalls] = useState<any[]>(initialCalls);
   const [loading, setLoading] = useState(initialLoading);
@@ -204,55 +207,6 @@ const CallLogsTab = ({
     }
   };
 
-  const getAppointmentStatusColor = (status: string | undefined) => {
-    switch (status?.toLowerCase()) {
-      case "completed":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "scheduled":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "in-process":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "rejected":
-        return "bg-red-100 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getSummary = (call: any) => {
-    if (call.call_analysis?.call_summary) {
-      return call.call_analysis.call_summary;
-    }
-    
-    if (call.summary) return call.summary;
-    
-    if (call.quick_summary) return call.quick_summary;
-    
-    if (call.transcript) {
-      const words = call.transcript.split(' ').slice(0, 30);
-      return `${words.join(' ')}... [Automatically generated summary]`;
-    }
-    
-    return "No summary available for this call.";
-  };
-
-  const toggleAudio = (audioRef: HTMLAudioElement | null) => {
-    if (!audioRef) return;
-    
-    if (audioRef.paused) {
-      audioRef.play().then(() => {
-        setPlayingAudio(true);
-      }).catch(error => {
-        console.error("Audio playback error:", error);
-        toast.error("Failed to play audio");
-        setPlayingAudio(false);
-      });
-    } else {
-      audioRef.pause();
-      setPlayingAudio(false);
-    }
-  };
-
   const saveCallEdits = async () => {
     if (!selectedCall || !selectedCall.call_id) {
       toast.error("No call selected or call ID missing");
@@ -292,6 +246,10 @@ const CallLogsTab = ({
             : call
         ));
         
+        if (updateCall) {
+          updateCall(updatedSelectedCall);
+        }
+        
         if (refreshCalls) {
           await refreshCalls();
         }
@@ -306,164 +264,139 @@ const CallLogsTab = ({
     }
   };
 
-  useEffect(() => {
-    if (dialogOpen && selectedCall?.recording_url) {
-      const audio = new Audio(selectedCall.recording_url);
-      
-      const handleAudioEnded = () => setPlayingAudio(false);
-      const handleAudioPaused = () => setPlayingAudio(false);
-      const handleAudioPlay = () => setPlayingAudio(true);
-      
-      audio.addEventListener('ended', handleAudioEnded);
-      audio.addEventListener('pause', handleAudioPaused);
-      audio.addEventListener('play', handleAudioPlay);
-      
-      setAudioElement(audio);
-      
-      return () => {
-        audio.pause();
-        audio.removeEventListener('ended', handleAudioEnded);
-        audio.removeEventListener('pause', handleAudioPaused);
-        audio.removeEventListener('play', handleAudioPlay);
-        setAudioElement(null);
-        setPlayingAudio(false);
-      };
+  const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
     }
-  }, [dialogOpen, selectedCall]);
-
-  const handleRowClick = (call: any) => {
-    setSelectedCall(call);
-    setDialogOpen(true);
-    setActiveTab("summary");
-  };
-
-  const handleEditClick = (call: any) => {
-    setSelectedCall(call);
-    setEditingCallData({
-      appointment_status: call.appointment_status || '',
-      appointment_date: call.appointment_date || '',
-      appointment_time: call.appointment_time || '',
-      notes: call.notes || ''
-    });
-    setEditDialogOpen(true);
-  };
-  
-  const safeValue = (value: string | undefined | null): string => {
-    return value || "";
-  };
-  
-  const handleFilterChange = (key: string, value: string) => {
-    setFilters({
-      ...filters,
-      [key]: value
-    });
     
-    if (value && value !== "all") {
-      if (!activeFilters.includes(key)) {
-        setActiveFilters([...activeFilters, key]);
-      }
-    } else {
-      setActiveFilters(activeFilters.filter(filter => filter !== key));
-    }
-  };
-
-  const clearFilter = (key: string) => {
-    setFilters({
-      ...filters,
-      [key]: key === "callStatus" || key === "appointmentStatus" ? "all" : ""
-    });
-    setActiveFilters(activeFilters.filter(filter => filter !== key));
-  };
-
-  const clearAllFilters = () => {
-    setFilters({
-      callStatus: "all",
-      appointmentStatus: "all",
-      dateFrom: "",
-      dateTo: "",
-      minDuration: "",
-      maxDuration: ""
-    });
-    setActiveFilters([]);
-    setSearchQuery("");
-  };
-  
-  const getFilterLabel = (key: string): string => {
-    switch(key) {
-      case "callStatus": return "Call Status";
-      case "appointmentStatus": return "Appointment Status";
-      case "dateFrom": return "Date From";
-      case "dateTo": return "Date To";
-      case "minDuration": return "Min Duration";
-      case "maxDuration": return "Max Duration";
-      default: return key;
-    }
-  };
-
-  const getFilterDisplayValue = (key: string): string => {
-    switch(key) {
-      case "dateFrom": 
-      case "dateTo":
-        if (!filters[key]) return "";
-        try {
-          return new Date(filters[key]).toLocaleDateString();
-        } catch (e) {
-          return "";
-        }
-      case "minDuration":
-      case "maxDuration":
-        return filters[key] ? `${filters[key]} min` : "";
-      default:
-        return filters[key] === "all" ? "Any" : filters[key];
-    }
-  };
-  
-  const filteredCalls = calls.filter(call => {
-    if (searchQuery && !JSON.stringify(call).toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
-    }
-
-    if (filters.callStatus !== "all" && call.call_status !== filters.callStatus) {
-      return false;
-    }
-
-    if (filters.appointmentStatus !== "all" && call.appointment_status !== filters.appointmentStatus) {
-      return false;
-    }
-
-    if (filters.dateFrom) {
-      const fromDate = new Date(filters.dateFrom);
-      const callDate = new Date(call.start_timestamp);
-      if (callDate < fromDate) {
-        return false;
-      }
-    }
-
-    if (filters.dateTo) {
-      const toDate = new Date(filters.dateTo);
-      toDate.setHours(23, 59, 59);
-      const callDate = new Date(call.start_timestamp);
-      if (callDate > toDate) {
-        return false;
-      }
-    }
-
-    if (call.start_timestamp && call.end_timestamp) {
-      const start = new Date(call.start_timestamp).getTime();
-      const end = new Date(call.end_timestamp).getTime();
-      const durationSec = (end - start) / 1000;
+    try {
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
       
-      if (filters.minDuration && durationSec < parseInt(filters.minDuration) * 60) {
-        return false;
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'scheduled',
+        appointment_date: date,
+        appointment_time: time,
+        from_number: selectedCall?.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
       }
       
-      if (filters.maxDuration && durationSec > parseInt(filters.maxDuration) * 60) {
-        return false;
+      if (result.error) {
+        throw result.error;
       }
+      
+      const updatedCall = {
+        ...selectedCall,
+        appointment_status: 'scheduled',
+        appointment_date: date,
+        appointment_time: time
+      };
+      
+      setSelectedCall(updatedCall);
+      
+      setCalls(prevCalls => prevCalls.map(call => 
+        call.call_id === callId ? updatedCall : call
+      ));
+      
+      if (updateCall) {
+        updateCall(updatedCall);
+      }
+      
+      if (refreshCalls) {
+        await refreshCalls();
+      }
+      
+      toast.success("Appointment scheduled successfully");
+    } catch (error) {
+      console.error("Error scheduling appointment:", error);
+      toast.error("Failed to schedule appointment");
     }
+  };
 
-    return true;
-  });
+  const handleRejectAppointment = async (callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
+    }
+    
+    try {
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
+      
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'rejected',
+        from_number: selectedCall?.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
+      }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
+      const updatedCall = {
+        ...selectedCall,
+        appointment_status: 'rejected',
+        appointment_date: null,
+        appointment_time: null
+      };
+      
+      setSelectedCall(updatedCall);
+      
+      setCalls(prevCalls => prevCalls.map(call => 
+        call.call_id === callId ? updatedCall : call
+      ));
+      
+      if (updateCall) {
+        updateCall(updatedCall);
+      }
+      
+      toast.info("Appointment suggestion rejected");
+    } catch (error) {
+      console.error("Error rejecting appointment:", error);
+      toast.error("Failed to update appointment status");
+    }
+  };
 
   return (
     <div>

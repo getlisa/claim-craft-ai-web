@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown } from "lucide-react";
@@ -14,18 +13,29 @@ import {
   DialogTrigger 
 } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AppointmentExtractor from "@/components/AppointmentExtractor";
+import { supabase } from "@/lib/supabase";
+import { toast } from "sonner";
+import { useAuth } from "@/contexts/AuthContext";
 
 interface CallCardProps {
   call: any;
   isExpanded: boolean;
   onToggleExpand: () => void;
+  onUpdateCall?: (updatedCall: any) => void;
 }
 
-const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand }) => {
+const CallCard: React.FC<CallCardProps> = ({ 
+  call, 
+  isExpanded, 
+  onToggleExpand,
+  onUpdateCall
+}) => {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("summary");
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const { agentId } = useAuth();
 
   // Parse transcript into lines
   const transcriptLines = call.transcript 
@@ -156,6 +166,129 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
     return "No summary available for this call.";
   };
 
+  // Handle appointment actions
+  const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
+    }
+    
+    try {
+      // First check if we need to create a new record or update existing
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
+      
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'scheduled',
+        appointment_date: date,
+        appointment_time: time,
+        from_number: call.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        // Update existing record
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        // Create new record
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
+      }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
+      // Update local state through parent component if callback is provided
+      if (onUpdateCall) {
+        onUpdateCall({
+          ...call,
+          appointment_status: 'scheduled',
+          appointment_date: date,
+          appointment_time: time
+        });
+      }
+      
+      toast.success('Appointment scheduled successfully');
+    } catch (error) {
+      console.error('Error saving appointment:', error);
+      toast.error('Failed to schedule appointment');
+    }
+  };
+
+  const handleRejectAppointment = async (callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
+    }
+    
+    try {
+      // First check if we need to create a new record or update existing
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
+      
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'rejected',
+        from_number: call.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        // Update existing record
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        // Create new record
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
+      }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
+      // Update local state through parent component if callback is provided
+      if (onUpdateCall) {
+        onUpdateCall({
+          ...call,
+          appointment_status: 'rejected',
+          appointment_date: null,
+          appointment_time: null
+        });
+      }
+      
+      toast.info('Appointment suggestion rejected');
+    } catch (error) {
+      console.error('Error rejecting appointment:', error);
+      toast.error('Failed to update appointment status');
+    }
+  };
+
   return (
     <>
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -234,6 +367,29 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
             </div>
           </div>
           
+          {/* Appointment status display */}
+          {call.appointment_status && (
+            <div className="mb-4 p-3 rounded-md bg-gray-50">
+              <div className="flex items-center gap-2">
+                <Calendar className="w-4 h-4 text-purple-500" />
+                <span className="text-sm text-gray-500">Appointment:</span>
+                <Badge className={cn(
+                  call.appointment_status === 'scheduled' ? "bg-green-100 text-green-800" :
+                  call.appointment_status === 'rejected' ? "bg-red-100 text-red-800" :
+                  "bg-blue-100 text-blue-800"
+                )}>
+                  {call.appointment_status}
+                </Badge>
+                
+                {call.appointment_date && call.appointment_time && (
+                  <span className="text-sm font-medium">
+                    {call.appointment_date} at {call.appointment_time}
+                  </span>
+                )}
+              </div>
+            </div>
+          )}
+          
           <div className="flex flex-wrap gap-2">
             <Button 
               variant="ghost" 
@@ -253,7 +409,7 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
               )}
             </Button>
             
-            <Dialog open={dialogOpen} onOpenChange={handleDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline"
@@ -439,6 +595,18 @@ const CallCard: React.FC<CallCardProps> = ({ call, isExpanded, onToggleExpand })
           
           {isExpanded && (
             <div className="mt-4 space-y-4 border-t pt-4">
+              {/* AI Appointment Extractor - only show if not already scheduled */}
+              {call.transcript && (!call.appointment_status || call.appointment_status === 'rejected') && (
+                <div className="mb-4">
+                  <AppointmentExtractor 
+                    transcript={call.transcript}
+                    callId={call.call_id}
+                    onAccept={handleAcceptAppointment}
+                    onReject={handleRejectAppointment}
+                  />
+                </div>
+              )}
+              
               {/* Call Analysis Section for expanded view */}
               {call.call_analysis && (
                 <div>

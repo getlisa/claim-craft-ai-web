@@ -11,10 +11,35 @@ import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
+// Define the Call type to prevent any[] usage
+interface Call {
+  call_id: string;
+  agent_id?: string;
+  call_status?: string;
+  start_timestamp?: string;
+  end_timestamp?: string;
+  transcript?: string;
+  recording_url?: string;
+  call_type?: string;
+  from_number?: string;
+  appointment_status?: string;
+  appointment_date?: string;
+  appointment_time?: string;
+  notes?: string;
+  call_analysis?: {
+    call_summary?: string;
+    user_sentiment?: string;
+    call_successful?: boolean;
+    in_voicemail?: boolean;
+  };
+  id?: number;
+  [key: string]: any; // Allow additional fields
+}
+
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
-  const [calls, setCalls] = useState<any[]>([]);
+  const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
   const { agentId, isAuthenticated } = useAuth();
 
@@ -84,8 +109,8 @@ const Dashboard = () => {
     }
   }, [agentId, isAuthenticated, fetchCalls]);
 
-  // Create a function to update a specific call in the calls array
-  const updateCall = useCallback((updatedCall: any) => {
+  // Function to update a specific call in the calls array
+  const updateCall = useCallback((updatedCall: Call) => {
     if (!updatedCall || !updatedCall.call_id) return;
     
     setCalls(prevCalls => prevCalls.map(call => 
@@ -125,6 +150,7 @@ const Dashboard = () => {
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
             refreshCalls={fetchCalls}
+            updateCall={updateCall}
           />
         }
         {activeTab === "appointments" && 
@@ -133,6 +159,7 @@ const Dashboard = () => {
             initialLoading={loading} 
             dataLoaded={initialDataLoaded}
             refreshCalls={fetchCalls}
+            updateCall={updateCall}
           />
         }
         {activeTab === "calendar" && 

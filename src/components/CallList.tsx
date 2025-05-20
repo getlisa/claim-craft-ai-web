@@ -24,9 +24,10 @@ import { Badge } from "./ui/badge";
 interface CallListProps {
   calls: any[];
   loading: boolean;
+  updateCall?: (updatedCall: any) => void;
 }
 
-const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
+const CallList: React.FC<CallListProps> = ({ calls, loading, updateCall }) => {
   const [expandedCallId, setExpandedCallId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filters, setFilters] = useState({
@@ -39,17 +40,11 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
   });
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
 
-  // Custom function to safely handle potentially undefined values to avoid UI errors
-  const safeValue = (value: string | undefined | null): string => {
-    return value || ""; // Return empty string if value is null or undefined
-  };
-
   const toggleExpand = (callId: string) => {
     setExpandedCallId(expandedCallId === callId ? null : callId);
   };
 
   const handleFilterChange = (key: string, value: string) => {
-    console.log(`Setting filter ${key} to value: ${value}`);
     setFilters({
       ...filters,
       [key]: value
@@ -269,7 +264,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                     <Input
                       id="date-from"
                       type="date"
-                      value={safeValue(filters.dateFrom)}
+                      value={filters.dateFrom}
                       onChange={(e) => handleFilterChange("dateFrom", e.target.value)}
                     />
                   </div>
@@ -279,7 +274,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                     <Input
                       id="date-to"
                       type="date"
-                      value={safeValue(filters.dateTo)}
+                      value={filters.dateTo}
                       onChange={(e) => handleFilterChange("dateTo", e.target.value)}
                     />
                   </div>
@@ -293,7 +288,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       id="min-duration"
                       type="number"
                       min="0"
-                      value={safeValue(filters.minDuration)}
+                      value={filters.minDuration}
                       onChange={(e) => handleFilterChange("minDuration", e.target.value)}
                     />
                   </div>
@@ -304,7 +299,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
                       id="max-duration"
                       type="number"
                       min="0"
-                      value={safeValue(filters.maxDuration)}
+                      value={filters.maxDuration}
                       onChange={(e) => handleFilterChange("maxDuration", e.target.value)}
                     />
                   </div>
@@ -358,6 +353,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading }) => {
             call={call} 
             isExpanded={expandedCallId === call.call_id}
             onToggleExpand={() => toggleExpand(call.call_id)}
+            onUpdateCall={updateCall}
           />
         ))}
         
