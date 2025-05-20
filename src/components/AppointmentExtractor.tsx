@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AppointmentExtractorProps {
   transcript: string;
   callId: string;
+  callDate?: Date; // Add reference date prop
   onExtracted?: (data: any) => void;
   autoExtract?: boolean;
 }
@@ -25,6 +26,7 @@ interface AppointmentExtractorProps {
 const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({ 
   transcript, 
   callId,
+  callDate,
   onExtracted,
   autoExtract = false
 }) => {
@@ -48,7 +50,8 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
     setLoading(true);
     
     try {
-      const result = await extractAppointmentDetails(transcript);
+      // Use call date as reference if provided
+      const result = await extractAppointmentDetails(transcript, callDate);
       
       setExtractedDate(result.appointmentDate);
       setExtractedTime(result.appointmentTime);

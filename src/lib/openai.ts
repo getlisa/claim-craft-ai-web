@@ -14,7 +14,7 @@ interface ExtractedAppointmentData {
 /**
  * Extracts appointment date and time from a transcript using OpenAI API
  */
-export async function extractAppointmentDetails(transcript: string): Promise<ExtractedAppointmentData> {
+export async function extractAppointmentDetails(transcript: string, referenceDate?: Date): Promise<ExtractedAppointmentData> {
   // Default values in case of error
   const defaultResponse: ExtractedAppointmentData = {
     appointmentDate: null,
@@ -29,19 +29,19 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
   }
 
   try {
-    // Get today's date to provide context for relative dates
-    const today = new Date();
-    const currentDate = format(today, 'yyyy-MM-dd');
+    // Use provided reference date or fall back to today
+    const baseDate = referenceDate || new Date();
+    const currentDate = format(baseDate, 'yyyy-MM-dd');
     
     // Prepare the system prompt - adding the word "json" to make it compatible with response_format
     const systemPrompt = `
       You are an AI trained to extract appointment date and time information from conversation transcripts.
       Analyze the transcript and find any mention of scheduling an appointment.
       
-      Today's date is ${currentDate}.
+      Reference date for this call is ${currentDate}.
       
       When you encounter relative dates like "tomorrow", "next Monday", "in two days", etc., 
-      calculate the actual date based on today's date (${currentDate}).
+      calculate the actual date based on the reference date (${currentDate}).
       
       Extract the following details in JSON format:
       1. Appointment date (in YYYY-MM-DD format, return null if not found)
@@ -129,7 +129,12 @@ export async function processCallTranscript(call: any, agentId: string) {
   try {
     // Only process if no appointment data exists yet
     if (!call.appointment_date && !call.appointment_time) {
-      const extractedData = await extractAppointmentDetails(call.transcript);
+      // Convert the call's start timestamp to a Date object to use as reference
+      const callDate = call.start_timestamp 
+        ? new Date(typeof call.start_timestamp === 'number' ? call.start_timestamp : Number(call.start_timestamp))
+        : new Date();
+      
+      const extractedData = await extractAppointmentDetails(call.transcript, callDate);
       
       if (extractedData.appointmentDate || extractedData.appointmentTime) {
         // We have appointment data - update in Supabase database directly

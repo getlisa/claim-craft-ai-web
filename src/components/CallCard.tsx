@@ -179,7 +179,12 @@ const CallCard: React.FC<CallCardProps> = ({
     setIsExtracting(true);
     
     try {
-      const extractedData = await extractAppointmentDetails(call.transcript);
+      // Create call date from timestamp
+      const callDate = call.start_timestamp 
+        ? new Date(typeof call.start_timestamp === 'number' ? call.start_timestamp : Number(call.start_timestamp))
+        : new Date();
+      
+      const extractedData = await extractAppointmentDetails(call.transcript, callDate);
       setExtractedAppointment(extractedData);
       
       // Show feedback based on extraction result
@@ -700,6 +705,7 @@ const CallCard: React.FC<CallCardProps> = ({
                         <AppointmentExtractor 
                           transcript={call.transcript}
                           callId={call.call_id}
+                          callDate={call.start_timestamp ? new Date(Number(call.start_timestamp)) : undefined}
                           autoExtract={false}
                           onExtracted={() => {}}
                         />
