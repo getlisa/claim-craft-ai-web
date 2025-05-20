@@ -27,7 +27,7 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
   }
 
   try {
-    // Prepare the system prompt
+    // Prepare the system prompt - adding the word "json" to make it compatible with response_format
     const systemPrompt = `
       You are an AI trained to extract appointment date and time information from conversation transcripts.
       Analyze the transcript and find any mention of scheduling an appointment.
@@ -39,6 +39,14 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
       4. A suggested confirmation response that the agent could use
       
       If multiple dates or times are mentioned, choose the one most likely to be the final agreed appointment.
+      
+      Return the data in JSON format with the following structure:
+      {
+        "appointmentDate": "YYYY-MM-DD or null",
+        "appointmentTime": "HH:MM or null",
+        "confidence": number,
+        "suggestedResponse": "string or null"
+      }
     `;
 
     // Check for API key in localStorage first (temporary storage for testing)
@@ -75,7 +83,7 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
           },
           {
             role: "user",
-            content: transcript
+            content: `Extract appointment details from this transcript and respond with JSON: ${transcript}`
           }
         ],
         response_format: { type: "json_object" }
