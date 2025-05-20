@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
@@ -9,6 +10,7 @@ import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
+import { processCallTranscript } from "@/lib/openai";
 
 // Define the Call type to prevent any[] usage
 interface Call {
@@ -40,6 +42,7 @@ const Dashboard = () => {
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [calls, setCalls] = useState<Call[]>([]);
   const [loading, setLoading] = useState(true);
+  const [processedCalls, setProcessedCalls] = useState<Set<string>>(new Set());
   const { agentId, isAuthenticated } = useAuth();
 
   // Create a fetchCalls function that can be used for initial load and refreshes
@@ -90,6 +93,9 @@ const Dashboard = () => {
       setCalls(mergedCalls);
       setInitialDataLoaded(true);
       
+      // Process transcripts with OpenAI in the background
+      processCallTranscripts(mergedCalls);
+      
       if (mergedCalls.length === 0) {
         toast.info("No calls found for this agent");
       }
@@ -100,6 +106,46 @@ const Dashboard = () => {
       setLoading(false);
     }
   }, [agentId]);
+
+  // Process call transcripts to extract appointment details
+  const processCallTranscripts = async (callsToProcess: Call[]) => {
+    if (!agentId) return;
+    
+    // Find calls that have transcripts but no appointment data yet
+    const callsNeedingProcessing = callsToProcess.filter(call => 
+      call.transcript && 
+      !processedCalls.has(call.call_id) && 
+      (!call.appointment_date || !call.appointment_time)
+    );
+    
+    if (callsNeedingProcessing.length === 0) return;
+    
+    // Process calls one by one
+    for (const call of callsNeedingProcessing) {
+      try {
+        const updatedCall = await processCallTranscript(call, agentId);
+        
+        // Mark as processed regardless of result
+        setProcessedCalls(prev => new Set(prev).add(call.call_id));
+        
+        // If we got updated data, update our state
+        if (updatedCall) {
+          setCalls(prevCalls => prevCalls.map(c => 
+            c.call_id === updatedCall.call_id ? updatedCall : c
+          ));
+          
+          // Show toast notification only for high confidence results
+          if (updatedCall.confidence > 70) {
+            toast.success(`Appointment detected for ${updatedCall.from_number || 'a call'}`, {
+              description: `${updatedCall.appointment_date} at ${updatedCall.appointment_time}`
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error processing transcript for call:", call.call_id, err);
+      }
+    }
+  };
 
   // Load initial data when dashboard mounts and we have an agentId
   useEffect(() => {

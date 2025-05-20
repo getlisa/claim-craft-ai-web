@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
-import { Info, Edit, Calendar, Play, Pause, Headphones, Search, Filter, X } from "lucide-react";
+
+import { useEffect, useState, useCallback } from "react";
+import { Calendar, Edit, Info, Play, Pause, Headphones, Search, Filter, X, Check, X as Xmark } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "sonner";
 import { Input } from "./ui/input";
@@ -39,7 +40,7 @@ import {
 } from "./ui/popover";
 import { Separator } from "./ui/separator";
 import { saveCallToSupabase, fetchCallsFromApi, CallData } from "@/lib/migrateCallsToSupabase";
-import AppointmentExtractor from "./AppointmentExtractor";
+import { extractAppointmentDetails } from "@/lib/openai";
 
 interface CallLogsTabProps {
   initialCalls?: any[];
@@ -73,6 +74,7 @@ const CallLogsTab = ({
   });
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [extractingAppointment, setExtractingAppointment] = useState(false);
   
   // Advanced filtering state
   const [filters, setFilters] = useState({
@@ -153,6 +155,7 @@ const CallLogsTab = ({
     }
   };
 
+  // Add missing functions from the component
   const formatDate = (timestamp: string) => {
     if (!timestamp) return "N/A";
     try {
@@ -206,199 +209,39 @@ const CallLogsTab = ({
         return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
-  const saveCallEdits = async () => {
-    if (!selectedCall || !selectedCall.call_id) {
-      toast.error("No call selected or call ID missing");
-      return;
-    }
-    
-    try {
-      const callData: CallData = {
-        ...selectedCall,
-        agent_id: agentId,
-        appointment_status: editingCallData.appointment_status,
-        appointment_date: editingCallData.appointment_date,
-        appointment_time: editingCallData.appointment_time,
-        notes: editingCallData.notes
-      };
-      
-      const success = await saveCallToSupabase(callData);
-      
-      if (success) {
-        toast.success("Call updated successfully");
-        
-        const updatedSelectedCall = {
-          ...selectedCall,
-          ...editingCallData
-        };
-        setSelectedCall(updatedSelectedCall);
-        
-        setCalls(prevCalls => prevCalls.map(call => 
-          call.call_id === selectedCall.call_id 
-            ? {
-                ...call,
-                appointment_status: editingCallData.appointment_status,
-                appointment_date: editingCallData.appointment_date,
-                appointment_time: editingCallData.appointment_time,
-                notes: editingCallData.notes
-              } 
-            : call
-        ));
-        
-        if (updateCall) {
-          updateCall(updatedSelectedCall);
-        }
-        
-        if (refreshCalls) {
-          await refreshCalls();
-        }
-        
-        setEditDialogOpen(false);
-      } else {
-        toast.error("Failed to update call");
-      }
-    } catch (error: any) {
-      console.error("Error updating call:", error);
-      toast.error(error.message || "Failed to update call");
+  
+  const getAppointmentStatusColor = (status: string) => {
+    switch (status) {
+      case "scheduled":
+        return "bg-green-100 text-green-800 border-green-200";
+      case "completed":
+        return "bg-blue-100 text-blue-800 border-blue-200";
+      case "in-process":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "rejected":
+        return "bg-red-100 text-red-800 border-red-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
     }
   };
-
-  const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
-    if (!agentId || !callId) {
-      toast.error("Missing agent ID or call ID");
-      return;
+  
+  const getSummary = (call: any) => {
+    if (call.call_analysis?.call_summary) {
+      return call.call_analysis.call_summary;
     }
     
-    try {
-      const { data: existingData } = await supabase
-        .from('call_logs')
-        .select('id')
-        .eq('call_id', callId)
-        .eq('agent_id', agentId)
-        .single();
-      
-      let result;
-      const updateData = {
-        call_id: callId,
-        agent_id: agentId,
-        appointment_status: 'scheduled',
-        appointment_date: date,
-        appointment_time: time,
-        from_number: selectedCall?.from_number || "",
-        updated_at: new Date().toISOString()
-      };
-      
-      if (existingData?.id) {
-        result = await supabase
-          .from('call_logs')
-          .update(updateData)
-          .eq('id', existingData.id)
-          .select();
-      } else {
-        result = await supabase
-          .from('call_logs')
-          .insert([updateData])
-          .select();
-      }
-      
-      if (result.error) {
-        throw result.error;
-      }
-      
-      const updatedCall = {
-        ...selectedCall,
-        appointment_status: 'scheduled',
-        appointment_date: date,
-        appointment_time: time
-      };
-      
-      setSelectedCall(updatedCall);
-      
-      setCalls(prevCalls => prevCalls.map(call => 
-        call.call_id === callId ? updatedCall : call
-      ));
-      
-      if (updateCall) {
-        updateCall(updatedCall);
-      }
-      
-      if (refreshCalls) {
-        await refreshCalls();
-      }
-      
-      toast.success("Appointment scheduled successfully");
-    } catch (error) {
-      console.error("Error scheduling appointment:", error);
-      toast.error("Failed to schedule appointment");
-    }
-  };
-
-  const handleRejectAppointment = async (callId: string) => {
-    if (!agentId || !callId) {
-      toast.error("Missing agent ID or call ID");
-      return;
+    if (call.summary) return call.summary;
+    
+    if (call.transcript) {
+      // Generate a simple summary based on first few words
+      const words = call.transcript.split(' ').slice(0, 30);
+      return `${words.join(' ')}... [Automatically generated summary]`;
     }
     
-    try {
-      const { data: existingData } = await supabase
-        .from('call_logs')
-        .select('id')
-        .eq('call_id', callId)
-        .eq('agent_id', agentId)
-        .single();
-      
-      let result;
-      const updateData = {
-        call_id: callId,
-        agent_id: agentId,
-        appointment_status: 'rejected',
-        from_number: selectedCall?.from_number || "",
-        updated_at: new Date().toISOString()
-      };
-      
-      if (existingData?.id) {
-        result = await supabase
-          .from('call_logs')
-          .update(updateData)
-          .eq('id', existingData.id)
-          .select();
-      } else {
-        result = await supabase
-          .from('call_logs')
-          .insert([updateData])
-          .select();
-      }
-      
-      if (result.error) {
-        throw result.error;
-      }
-      
-      const updatedCall = {
-        ...selectedCall,
-        appointment_status: 'rejected',
-        appointment_date: null,
-        appointment_time: null
-      };
-      
-      setSelectedCall(updatedCall);
-      
-      setCalls(prevCalls => prevCalls.map(call => 
-        call.call_id === callId ? updatedCall : call
-      ));
-      
-      if (updateCall) {
-        updateCall(updatedCall);
-      }
-      
-      toast.info("Appointment suggestion rejected");
-    } catch (error) {
-      console.error("Error rejecting appointment:", error);
-      toast.error("Failed to update appointment status");
-    }
+    return "No summary available for this call.";
   };
 
-  // Add missing functionality for filtering
+  // Handle filtering functions
   const handleFilterChange = (filterName: string, value: string) => {
     setFilters(prev => ({ ...prev, [filterName]: value }));
     
@@ -524,36 +367,255 @@ const CallLogsTab = ({
     });
     setEditDialogOpen(true);
   };
-  
-  const getAppointmentStatusColor = (status: string) => {
-    switch (status) {
-      case "scheduled":
-        return "bg-green-100 text-green-800 border-green-200";
-      case "completed":
-        return "bg-blue-100 text-blue-800 border-blue-200";
-      case "in-process":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "rejected":
-        return "bg-red-100 text-red-800 border-red-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+
+  const saveCallEdits = async () => {
+    if (!selectedCall || !selectedCall.call_id) {
+      toast.error("No call selected or call ID missing");
+      return;
+    }
+    
+    try {
+      const callData: CallData = {
+        ...selectedCall,
+        agent_id: agentId,
+        appointment_status: editingCallData.appointment_status,
+        appointment_date: editingCallData.appointment_date,
+        appointment_time: editingCallData.appointment_time,
+        notes: editingCallData.notes
+      };
+      
+      const success = await saveCallToSupabase(callData);
+      
+      if (success) {
+        toast.success("Call updated successfully");
+        
+        const updatedSelectedCall = {
+          ...selectedCall,
+          ...editingCallData
+        };
+        setSelectedCall(updatedSelectedCall);
+        
+        setCalls(prevCalls => prevCalls.map(call => 
+          call.call_id === selectedCall.call_id 
+            ? {
+                ...call,
+                appointment_status: editingCallData.appointment_status,
+                appointment_date: editingCallData.appointment_date,
+                appointment_time: editingCallData.appointment_time,
+                notes: editingCallData.notes
+              } 
+            : call
+        ));
+        
+        if (updateCall) {
+          updateCall(updatedSelectedCall);
+        }
+        
+        if (refreshCalls) {
+          await refreshCalls();
+        }
+        
+        setEditDialogOpen(false);
+      } else {
+        toast.error("Failed to update call");
+      }
+    } catch (error: any) {
+      console.error("Error updating call:", error);
+      toast.error(error.message || "Failed to update call");
+    }
+  };
+
+  const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
+    }
+    
+    try {
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
+      
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'scheduled',
+        appointment_date: date,
+        appointment_time: time,
+        from_number: selectedCall?.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
+      }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
+      const updatedCall = {
+        ...selectedCall,
+        appointment_status: 'scheduled',
+        appointment_date: date,
+        appointment_time: time
+      };
+      
+      setSelectedCall(updatedCall);
+      
+      setCalls(prevCalls => prevCalls.map(call => 
+        call.call_id === callId ? updatedCall : call
+      ));
+      
+      if (updateCall) {
+        updateCall(updatedCall);
+      }
+      
+      if (refreshCalls) {
+        await refreshCalls();
+      }
+      
+      toast.success("Appointment scheduled successfully");
+      
+      // Close dialog
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Error scheduling appointment:", error);
+      toast.error("Failed to schedule appointment");
+    }
+  };
+
+  const handleRejectAppointment = async (callId: string) => {
+    if (!agentId || !callId) {
+      toast.error("Missing agent ID or call ID");
+      return;
+    }
+    
+    try {
+      const { data: existingData } = await supabase
+        .from('call_logs')
+        .select('id')
+        .eq('call_id', callId)
+        .eq('agent_id', agentId)
+        .single();
+      
+      let result;
+      const updateData = {
+        call_id: callId,
+        agent_id: agentId,
+        appointment_status: 'rejected',
+        from_number: selectedCall?.from_number || "",
+        updated_at: new Date().toISOString()
+      };
+      
+      if (existingData?.id) {
+        result = await supabase
+          .from('call_logs')
+          .update(updateData)
+          .eq('id', existingData.id)
+          .select();
+      } else {
+        result = await supabase
+          .from('call_logs')
+          .insert([updateData])
+          .select();
+      }
+      
+      if (result.error) {
+        throw result.error;
+      }
+      
+      const updatedCall = {
+        ...selectedCall,
+        appointment_status: 'rejected',
+        appointment_date: null,
+        appointment_time: null
+      };
+      
+      setSelectedCall(updatedCall);
+      
+      setCalls(prevCalls => prevCalls.map(call => 
+        call.call_id === callId ? updatedCall : call
+      ));
+      
+      if (updateCall) {
+        updateCall(updatedCall);
+      }
+      
+      toast.info("Appointment suggestion rejected");
+      
+      // Close dialog
+      setDialogOpen(false);
+    } catch (error) {
+      console.error("Error rejecting appointment:", error);
+      toast.error("Failed to update appointment status");
     }
   };
   
-  const getSummary = (call: any) => {
-    if (call.call_analysis?.call_summary) {
-      return call.call_analysis.call_summary;
+  // Extract appointment details manually
+  const extractAppointmentFromTranscript = async (call: any) => {
+    if (!call.transcript) {
+      toast.error("No transcript available for this call");
+      return;
     }
+
+    setExtractingAppointment(true);
     
-    if (call.summary) return call.summary;
-    
-    if (call.transcript) {
-      // Generate a simple summary based on first few words
-      const words = call.transcript.split(' ').slice(0, 30);
-      return `${words.join(' ')}... [Automatically generated summary]`;
+    try {
+      const extractedData = await extractAppointmentDetails(call.transcript);
+      
+      if (extractedData.appointmentDate || extractedData.appointmentTime) {
+        // We found appointment data
+        const updatedCall = {
+          ...call,
+          appointment_date: extractedData.appointmentDate,
+          appointment_time: extractedData.appointmentTime,
+          appointment_status: 'in-process',
+          suggestedResponse: extractedData.suggestedResponse,
+          confidence: extractedData.confidence
+        };
+        
+        setSelectedCall(updatedCall);
+        
+        // Save to database
+        const callData: CallData = {
+          ...updatedCall,
+          agent_id: agentId || "",
+        };
+        
+        await saveCallToSupabase(callData);
+        
+        setCalls(prevCalls => prevCalls.map(c => 
+          c.call_id === call.call_id ? updatedCall : c
+        ));
+        
+        if (updateCall) {
+          updateCall(updatedCall);
+        }
+        
+        toast.success(`Appointment detected: ${extractedData.appointmentDate} at ${extractedData.appointmentTime}`);
+      } else {
+        toast.info("No appointment details found in transcript");
+      }
+    } catch (error) {
+      console.error("Error extracting appointment details:", error);
+      toast.error("Failed to extract appointment details");
+    } finally {
+      setExtractingAppointment(false);
     }
-    
-    return "No summary available for this call.";
   };
 
   return (
@@ -813,6 +875,33 @@ const CallLogsTab = ({
                         <div className="flex items-center">
                           <Calendar className="h-3 w-3 mr-1 text-gray-500" />
                           <span>{call.appointment_date} {call.appointment_time}</span>
+                          
+                          {call.appointment_status === 'in-process' && (
+                            <div className="flex items-center ml-2">
+                              <Button 
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleAcceptAppointment(call.appointment_date, call.appointment_time, call.call_id);
+                                }}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button 
+                                size="sm"
+                                variant="ghost"
+                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRejectAppointment(call.call_id);
+                                }}
+                              >
+                                <Xmark className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <span className="text-gray-400">Not scheduled</span>
@@ -904,13 +993,66 @@ const CallLogsTab = ({
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Appointment:</span>
                     {selectedCall.appointment_date ? (
-                      <span className="font-medium">
-                        {selectedCall.appointment_date} {selectedCall.appointment_time}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">
+                          {selectedCall.appointment_date} {selectedCall.appointment_time}
+                        </span>
+                        
+                        {selectedCall.appointment_status === 'in-process' && (
+                          <div className="flex items-center ml-1">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 py-0 text-green-600 hover:text-green-700 hover:bg-green-50 mr-1"
+                              onClick={() => handleAcceptAppointment(
+                                selectedCall.appointment_date, 
+                                selectedCall.appointment_time, 
+                                selectedCall.call_id
+                              )}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              <span className="text-xs">Accept</span>
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 py-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleRejectAppointment(selectedCall.call_id)}
+                            >
+                              <Xmark className="h-3 w-3 mr-1" />
+                              <span className="text-xs">Reject</span>
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     ) : (
-                      <span className="text-gray-400">Not scheduled</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400">Not scheduled</span>
+                        
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-6 px-2 py-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                          onClick={() => extractAppointmentFromTranscript(selectedCall)}
+                          disabled={extractingAppointment || !selectedCall.transcript}
+                        >
+                          {extractingAppointment ? (
+                            <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                          ) : (
+                            <Calendar className="h-3 w-3 mr-1" />
+                          )}
+                          <span className="text-xs">Extract Appointment</span>
+                        </Button>
+                      </div>
                     )}
                   </div>
+                  
+                  {selectedCall.suggestedResponse && (
+                    <div className="col-span-2 mt-1 p-2 bg-purple-50 border border-purple-100 rounded-md">
+                      <span className="text-purple-700 text-xs font-medium">Suggested response:</span>
+                      <p className="text-sm mt-1">{selectedCall.suggestedResponse}</p>
+                    </div>
+                  )}
                 </div>
               </div>
               
@@ -980,7 +1122,25 @@ const CallLogsTab = ({
                   <TabsContent value="transcript" className="overflow-auto max-h-[50vh] px-1">
                     {selectedCall.transcript ? (
                       <div className="bg-gray-50 p-4 rounded-md">
-                        <h3 className="font-medium mb-4 text-gray-700">Transcript</h3>
+                        <div className="flex justify-between mb-4">
+                          <h3 className="font-medium text-gray-700">Transcript</h3>
+                          {!selectedCall.appointment_date && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 py-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                              onClick={() => extractAppointmentFromTranscript(selectedCall)}
+                              disabled={extractingAppointment}
+                            >
+                              {extractingAppointment ? (
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                              ) : (
+                                <Calendar className="h-3 w-3 mr-1" />
+                              )}
+                              <span className="text-xs">Extract Appointment</span>
+                            </Button>
+                          )}
+                        </div>
                         <div className="space-y-4">
                           {selectedCall.transcript.split(/(?<=[.!?])\s+/).filter((line: string) => line.trim().length > 0).map((line: string, index: number) => (
                             <div key={index} className="p-3 rounded-lg bg-white border border-gray-100 shadow-sm hover:border-purple-200 transition-colors">

@@ -45,7 +45,7 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.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 || ''}`,
+        "Authorization": `Bearer ${process.env.OPENAI_API_KEY || ''}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
@@ -81,5 +81,54 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
     console.error("Error extracting appointment details:", error);
     toast.error("Failed to analyze transcript");
     return defaultResponse;
+  }
+}
+
+// Automatically process and save appointment data from call transcript
+export async function processCallTranscript(call: any, agentId: string) {
+  if (!call.transcript || !agentId) return null;
+  
+  try {
+    // Only process if no appointment data exists yet
+    if (!call.appointment_date && !call.appointment_time) {
+      const extractedData = await extractAppointmentDetails(call.transcript);
+      
+      if (extractedData.appointmentDate || extractedData.appointmentTime) {
+        // We have appointment data - update in database
+        const { data, error } = await fetch('/api/update-appointment', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            call_id: call.call_id,
+            agent_id: agentId,
+            appointment_date: extractedData.appointmentDate,
+            appointment_time: extractedData.appointmentTime,
+            appointment_status: 'in-process', // Default status for extracted appointments
+            confidence: extractedData.confidence
+          })
+        }).then(res => res.json());
+        
+        if (error) {
+          console.error("Failed to save appointment data:", error);
+          return null;
+        }
+        
+        return {
+          ...call,
+          appointment_date: extractedData.appointmentDate,
+          appointment_time: extractedData.appointmentTime,
+          appointment_status: 'in-process',
+          confidence: extractedData.confidence,
+          suggestedResponse: extractedData.suggestedResponse
+        };
+      }
+    }
+    
+    return null; // No changes
+  } catch (error) {
+    console.error("Error processing transcript:", error);
+    return null;
   }
 }
