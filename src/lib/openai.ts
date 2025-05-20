@@ -1,5 +1,6 @@
 
 import { toast } from "sonner";
+import { supabase } from "./supabase";
 
 // Define the response structure
 interface ExtractedAppointmentData {
@@ -121,21 +122,20 @@ export async function processCallTranscript(call: any, agentId: string) {
       const extractedData = await extractAppointmentDetails(call.transcript);
       
       if (extractedData.appointmentDate || extractedData.appointmentTime) {
-        // We have appointment data - update in database
-        const { data, error } = await fetch('/api/update-appointment', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        // We have appointment data - update in Supabase database directly
+        const { data, error } = await supabase
+          .from('call_logs')
+          .upsert({
             call_id: call.call_id,
             agent_id: agentId,
             appointment_date: extractedData.appointmentDate,
             appointment_time: extractedData.appointmentTime,
             appointment_status: 'in-process', // Default status for extracted appointments
-            confidence: extractedData.confidence
+            confidence: extractedData.confidence,
+            from_number: call.from_number || "",
+            updated_at: new Date().toISOString()
           })
-        }).then(res => res.json());
+          .select();
         
         if (error) {
           console.error("Failed to save appointment data:", error);
