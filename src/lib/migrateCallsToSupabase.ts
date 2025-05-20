@@ -94,7 +94,7 @@ export async function fetchCallsFromApi(agentId: string) {
   
   try {
     // Updated to use the correct API endpoint: /calls instead of /call
-    const response = await fetch(`https://api.retellai.com/calls?agent_id=${agentId}&limit=1000`, {
+    const response = await fetch(`https://api.retellai.com/api/v1/calls?agent_id=${agentId}&limit=1000`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -208,7 +208,7 @@ export const saveCallToSupabase = async (callData: CallData): Promise<boolean> =
         .update(cleanedData)
         .eq('id', data[0].id);
     } else {
-      // Insert a new record
+      // Insert a new record with created_at timestamp
       result = await supabase
         .from('call_logs')
         .insert([{

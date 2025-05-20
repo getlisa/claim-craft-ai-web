@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -14,7 +15,7 @@ interface DashboardTabProps {
   updateCall?: (updatedCall: any) => void;
 }
 
-const DashboardTab = ({ initialCalls = [], initialLoading = false }: DashboardTabProps) => {
+const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = false, refreshCalls, updateCall }: DashboardTabProps) => {
   const { toast } = useToast();
   const { agentId } = useAuth();
   const [loading, setLoading] = useState(initialLoading);
