@@ -341,6 +341,24 @@ const CallCard: React.FC<CallCardProps> = ({
     return !call.appointment_status || call.appointment_status === 'in-process';
   };
 
+  // Helper function to format phone numbers
+  const formatPhoneNumber = (phoneNumber: string | undefined): string => {
+    if (!phoneNumber) return "Unknown";
+    
+    // Remove any non-digit characters
+    const cleaned = phoneNumber.replace(/\D/g, '');
+    
+    // Check if it's a valid US number
+    if (cleaned.length === 10) {
+      return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    } else if (cleaned.length === 11 && cleaned[0] === '1') {
+      return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+    }
+    
+    // If not a standard format, return as is but add a + if it seems international
+    return cleaned.length > 10 ? `+${cleaned}` : phoneNumber;
+  };
+
   return (
     <>
       <Card className="overflow-hidden transition-all duration-300 hover:shadow-md">
@@ -348,7 +366,9 @@ const CallCard: React.FC<CallCardProps> = ({
           <div className="flex flex-wrap justify-between items-center">
             <div className="flex items-center gap-2">
               <Phone className="w-4 h-4 text-purple-500" />
-              <CardTitle className="text-lg font-medium">{call.call_id.substring(0, 12)}...</CardTitle>
+              <CardTitle className="text-lg font-medium">
+                {formatPhoneNumber(call.from_number) || "Unknown Caller"}
+              </CardTitle>
               <Badge className={cn("ml-2", getStatusColor(call.call_status))}>
                 {call.call_status}
               </Badge>
