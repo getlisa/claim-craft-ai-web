@@ -8,8 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, RefreshCw } from "lucide-react";
 import { 
   ChartContainer, 
-  ChartTooltip, 
-  ChartTooltipContent
+  ChartTooltip
 } from "@/components/ui/chart";
 import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
@@ -162,10 +161,10 @@ const DashboardTab = ({
         <CardContent className="h-80">
           <ChartContainer 
             config={{
-              positive: { theme: { light: "#10B981" } },
-              neutral: { theme: { light: "#6366F1" } },
-              negative: { theme: { light: "#EF4444" } },
-              unknown: { theme: { light: "#9CA3AF" } }
+              positive: { theme: { light: "#10B981", dark: "#10B981" } },
+              neutral: { theme: { light: "#6366F1", dark: "#6366F1" } },
+              negative: { theme: { light: "#EF4444", dark: "#EF4444" } },
+              unknown: { theme: { light: "#9CA3AF", dark: "#9CA3AF" } }
             }}
           >
             <BarChart
@@ -240,3 +239,4 @@ const DashboardTab = ({
 };
 
 export default DashboardTab;
+
