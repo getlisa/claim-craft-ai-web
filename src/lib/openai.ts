@@ -45,7 +45,7 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.OPENAI_API_KEY || ''}`,
+        "Authorization": `Bearer ${process.env.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 || ''}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
