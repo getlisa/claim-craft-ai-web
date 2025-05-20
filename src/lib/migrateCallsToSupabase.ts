@@ -21,7 +21,6 @@ export interface CallData {
     call_successful?: boolean;
   };
   id?: number; // Database ID if available
-  created_at?: string;
 }
 
 // Helper function to ensure timestamps are in ISO format
@@ -71,8 +70,7 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
       appointment_date: call.appointment_date,
       appointment_time: call.appointment_time,
       notes: call.notes,
-      from_number: call.from_number,
-      created_at: new Date().toISOString() // Add created_at timestamp
+      from_number: call.from_number
     };
     
     if (existingCall) {
@@ -107,10 +105,9 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
   }
 };
 
-// THE RETELLAI API ENDPOINT IS DEFINED HERE
 export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> => {
   const apiKey = 'key_a1bb2ca857089316392d48972a6f'; 
-  const apiUrl = 'https://api.retellai.com/v2/calls'; // This is the RetellAI API endpoint
+  const apiUrl = 'https://api.retellai.com/v2/list-calls';
   
   try {
     const response = await fetch(apiUrl, {
@@ -121,18 +118,12 @@ export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> =>
       },
       body: JSON.stringify({
         filter_criteria: { agent_id: [agentId] },
-        limit: 1000,
+        limit: 10
       })
     });
 
     if (!response.ok) {
-      const contentType = response.headers.get("content-type");
-      if (contentType && contentType.includes("application/json")) {
-        const errorData = await response.json();
-        throw new Error(`API request failed with status ${response.status}: ${JSON.stringify(errorData)}`);
-      } else {
-        throw new Error(`API request failed with status ${response.status}`);
-      }
+      throw new Error(`Error: ${response.status} ${response.statusText}`);
     }
 
     const data = await response.json();
