@@ -83,7 +83,12 @@ const Dashboard = () => {
       if (apiCalls.length === 0 && dbCalls && dbCalls.length > 0) {
         mergedCalls = dbCalls.map(call => ({
           ...call,
-          processed: true
+          processed: true,
+          // Ensure call_status has a value for display
+          call_status: call.call_status || "unknown",
+          // Ensure timestamps are properly formatted for duration calculations
+          start_timestamp: call.start_timestamp || null,
+          end_timestamp: call.end_timestamp || null
         }));
         
         if (!initialDataLoaded) {
@@ -102,11 +107,17 @@ const Dashboard = () => {
               notes: dbCall.notes || apiCall.notes,
               from_number: dbCall.from_number || apiCall.from_number || "",
               id: dbCall.id,
+              call_status: apiCall.call_status || dbCall.call_status || "unknown", // Ensure call_status has a value
+              start_timestamp: apiCall.start_timestamp || dbCall.start_timestamp || null,
+              end_timestamp: apiCall.end_timestamp || dbCall.end_timestamp || null,
               processed: true // Mark calls from DB as processed
             };
           }
           return {
             ...apiCall,
+            call_status: apiCall.call_status || "unknown", // Ensure call_status has a value
+            start_timestamp: apiCall.start_timestamp || null,
+            end_timestamp: apiCall.end_timestamp || null,
             processed: false // Mark new calls as not processed
           };
         });
@@ -187,7 +198,14 @@ const Dashboard = () => {
     if (!updatedCall || !updatedCall.call_id) return;
     
     setCalls(prevCalls => prevCalls.map(call => 
-      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall, processed: true } : call
+      call.call_id === updatedCall.call_id ? { 
+        ...call, 
+        ...updatedCall, 
+        processed: true,
+        call_status: updatedCall.call_status || call.call_status || "unknown", // Ensure call_status has a value
+        start_timestamp: updatedCall.start_timestamp || call.start_timestamp || null,
+        end_timestamp: updatedCall.end_timestamp || call.end_timestamp || null
+      } : call
     ));
     
     // Show a feedback toast

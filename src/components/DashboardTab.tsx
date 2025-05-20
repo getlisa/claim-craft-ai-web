@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -74,7 +73,7 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
 
     setSentimentData(formattedSentimentData);
 
-    // Process call status data
+    // Process call status data - ensure we handle missing statuses
     const statuses = callData.reduce((acc: Record<string, number>, call) => {
       const status = call.call_status || 'unknown';
       acc[status] = (acc[status] || 0) + 1;
@@ -82,7 +81,7 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
     }, {});
 
     const formattedStatusData = Object.keys(statuses).map(key => ({
-      name: key.charAt(0).toUpperCase() + key.slice(1),
+      name: key === 'unknown' ? 'Unknown' : key.charAt(0).toUpperCase() + key.slice(1),
       value: statuses[key]
     }));
 
@@ -92,11 +91,18 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
     const callsByDate: Record<string, number> = {};
     
     callData.forEach(call => {
+      // Handle missing timestamps gracefully
       if (call.start_timestamp) {
         const date = new Date(call.start_timestamp).toISOString().split('T')[0];
         callsByDate[date] = (callsByDate[date] || 0) + 1;
       }
     });
+
+    // If no dates, add today to avoid empty chart
+    if (Object.keys(callsByDate).length === 0) {
+      const today = new Date().toISOString().split('T')[0];
+      callsByDate[today] = 0;
+    }
 
     // Sort dates and take the last 7 days
     const sortedDates = Object.keys(callsByDate).sort();
@@ -130,6 +136,43 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
 
   const CHART_COLORS = ['#4ade80', '#60a5fa', '#f87171', '#fbbf24', '#a78bfa', '#d1d5db'];
 
+  // Calculate average duration with proper null handling
+  const calculateAverageDuration = () => {
+    const durations = calls
+      .filter(call => call.start_timestamp && call.end_timestamp)
+      .map(call => {
+        try {
+          const start = new Date(call.start_timestamp).getTime();
+          const end = new Date(call.end_timestamp).getTime();
+          if (isNaN(start) || isNaN(end) || start > end) {
+            return null;
+          }
+          return (end - start) / 1000 / 60; // minutes
+        } catch (e) {
+          return null; 
+        }
+      })
+      .filter(duration => duration !== null && !isNaN(duration) && duration >= 0);
+    
+    if (durations.length === 0) return "N/A";
+    
+    const avgDuration = durations.reduce((sum, duration) => sum + (duration || 0), 0) / durations.length;
+    const minutes = Math.floor(avgDuration);
+    const seconds = Math.floor((avgDuration - minutes) * 60);
+    
+    return `${minutes}m ${seconds}s`;
+  };
+
+  // Calculate call completion rate with proper null handling
+  const calculateCompletionRate = () => {
+    if (calls.length === 0) return "N/A";
+    
+    const completedCalls = calls.filter(call => call.call_status === 'completed').length;
+    const total = calls.length;
+    
+    return total > 0 ? `${Math.round((completedCalls / total) * 100)}%` : "N/A";
+  };
+
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -152,25 +195,7 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {calls.length > 0 
-                ? (() => {
-                    const durations = calls
-                      .filter(call => call.start_timestamp && call.end_timestamp)
-                      .map(call => {
-                        const start = new Date(call.start_timestamp).getTime();
-                        const end = new Date(call.end_timestamp).getTime();
-                        return (end - start) / 1000 / 60; // minutes
-                      });
-                    
-                    if (durations.length === 0) return "N/A";
-                    
-                    const avgDuration = durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
-                    const minutes = Math.floor(avgDuration);
-                    const seconds = Math.floor((avgDuration - minutes) * 60);
-                    
-                    return `${minutes}m ${seconds}s`;
-                  })()
-                : "N/A"}
+              {calculateAverageDuration()}
             </div>
           </CardContent>
         </Card>
@@ -183,17 +208,13 @@ const DashboardTab = ({ initialCalls = [], initialLoading = false, dataLoaded = 
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">
-              {calls.length > 0
-                ? (() => {
-                    const completedCalls = calls.filter(call => call.call_status === 'completed').length;
-                    return `${Math.round((completedCalls / calls.length) * 100)}%`;
-                  })()
-                : "N/A"}
+              {calculateCompletionRate()}
             </div>
           </CardContent>
         </Card>
       </div>
 
+      
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Call Sentiment Chart */}
         <Card>
