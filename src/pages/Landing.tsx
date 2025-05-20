@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -10,17 +10,35 @@ import {
   Headphones,
   Zap,
   Bot,
+  Check,
+  Phone,
+  Clock,
+  Users,
+  Menu,
+  X,
+  Play,
+  Star,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { AspectRatio } from "@/components/ui/aspect-ratio";
-import Header from "@/components/Header";
+import { Slider } from "@/components/ui/slider";
+
+// Import components
+import LisaLogo from "@/components/lisa/LisaLogo";
+import AgentCard from "@/components/lisa/AgentCard";
+import TestimonialCard from "@/components/lisa/TestimonialCard";
+import RoiCalculator from "@/components/lisa/RoiCalculator";
+import MobileMenu from "@/components/lisa/MobileMenu";
 
 const Landing = () => {
   const [scrolled, setScrolled] = useState(false);
   const [animatedText, setAnimatedText] = useState(0);
-
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  
+  // Refs for intersection observer
+  const sectionRefs = useRef<(HTMLElement | null)[]>([]);
+  
   useEffect(() => {
     const handleScroll = () => {
       const isScrolled = window.scrollY > 20;
@@ -35,10 +53,29 @@ const Landing = () => {
     const interval = setInterval(() => {
       setAnimatedText(prev => (prev + 1) % 3);
     }, 3000);
+    
+    // Intersection observer for animation
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('animate-fade-in');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      { threshold: 0.1 }
+    );
+    
+    // Observe all section elements
+    document.querySelectorAll('.animate-on-scroll').forEach((el) => {
+      observer.observe(el);
+    });
 
     return () => {
       window.removeEventListener("scroll", handleScroll);
       clearInterval(interval);
+      observer.disconnect();
     };
   }, [scrolled]);
 
@@ -47,26 +84,151 @@ const Landing = () => {
     "All without hiring another human.",
     "Let AI handle the repetitive tasks while you focus on growth."
   ];
+  
+  // Agent data for the Agents Section
+  const agentData = [
+    { 
+      title: "AI Calling", 
+      description: "Lisa handles all your calls and never misses a lead", 
+      icon: <Phone className="w-6 h-6" />,
+      color: "from-purple-500 to-pink-500", 
+    },
+    { 
+      title: "Smart Scheduling", 
+      description: "Optimize technician routes and appointment slots", 
+      icon: <Calendar className="w-6 h-6" />,
+      color: "from-blue-500 to-purple-500", 
+    },
+    { 
+      title: "Invoice Management", 
+      description: "Automated invoice follow-ups and payment tracking", 
+      icon: <BarChart className="w-6 h-6" />,
+      color: "from-pink-500 to-red-500", 
+    },
+    { 
+      title: "Field Operations", 
+      description: "Real-time job tracking and technician coordination", 
+      icon: <Construction className="w-6 h-6" />,
+      color: "from-green-500 to-teal-500", 
+    },
+    { 
+      title: "Data Analytics", 
+      description: "Actionable insights to grow your business", 
+      icon: <Zap className="w-6 h-6" />,
+      color: "from-amber-500 to-orange-500", 
+    },
+    { 
+      title: "AI Integration", 
+      description: "Seamless connection with your existing tools", 
+      icon: <Bot className="w-6 h-6" />,
+      color: "from-indigo-500 to-blue-500", 
+    },
+  ];
+  
+  // Testimonial data
+  const testimonialData = [
+    {
+      quote: "LISA's AI calling feature has captured 40% more leads that would have otherwise gone to voicemail. It's like having a 24/7 receptionist.",
+      name: "Michael Rodriguez",
+      title: "Owner, Rodriguez Plumbing",
+      avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80",
+    },
+    {
+      quote: "The smart scheduling has cut our admin time by 70%. Our technicians are always where they need to be, with the right information.",
+      name: "Sarah Thompson",
+      title: "Operations Manager, Thompson Electric",
+      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80",
+    },
+    {
+      quote: "Our cash flow improved by 35% since using LISA's invoice management. Customers pay faster because the follow-up is consistent.",
+      name: "David Chen",
+      title: "CEO, Chen HVAC Solutions",
+      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80",
+    }
+  ];
+  
+  // Partner logos
+  const partnerLogos = [
+    { name: "TechCorp", logo: "TC" },
+    { name: "BuildRight", logo: "BR" },
+    { name: "ServicePro", logo: "SP" },
+    { name: "ElectricNow", logo: "EN" },
+    { name: "PlumbingPlus", logo: "PP" },
+  ];
+  
+  // Benefits data
+  const benefits = [
+    {
+      title: "Lower Overhead Costs",
+      description: "Reduce admin staff needs by automating repetitive tasks",
+      icon: <BarChart className="w-6 h-6" />
+    },
+    {
+      title: "24/7 Availability",
+      description: "Never miss another call or opportunity, even after hours",
+      icon: <Clock className="w-6 h-6" />
+    },
+    {
+      title: "Happier Team Members",
+      description: "Let your team focus on skilled work, not administrative tasks",
+      icon: <Users className="w-6 h-6" />
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#0a0118] to-[#120c25] text-white font-inter overflow-x-hidden">
-      {/* Use the Header component */}
-      <Header />
-
+      {/* Navigation Bar */}
+      <nav className={`fixed w-full z-50 ${scrolled ? 'bg-black/80' : 'bg-transparent'} backdrop-blur-lg transition-all duration-300 border-b border-purple-500/10`}>
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          {/* Logo */}
+          <Link to="/" className="flex items-center">
+            <LisaLogo />
+          </Link>
+          
+          {/* Desktop Navigation */}
+          <div className="hidden md:flex items-center space-x-6">
+            <Link to="/" className="text-white hover:text-purple-300 transition-colors">Home</Link>
+            <Link to="/" className="text-white hover:text-purple-300 transition-colors">Agents</Link>
+            <Link to="/" className="text-white hover:text-purple-300 transition-colors">Pricing</Link>
+            <Link to="/" className="text-white hover:text-purple-300 transition-colors">About</Link>
+          </div>
+          
+          {/* Action Buttons */}
+          <div className="hidden md:flex items-center space-x-4">
+            <Button asChild variant="ghost" className="text-white hover:text-purple-300 transition-colors">
+              <Link to="/voice/login">Sign In</Link>
+            </Button>
+            <Button asChild className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white border-0">
+              <Link to="/voice/login">Get Started</Link>
+            </Button>
+          </div>
+          
+          {/* Mobile Menu Button */}
+          <div className="md:hidden">
+            <Button variant="ghost" size="icon" onClick={() => setMobileMenuOpen(true)}>
+              <Menu className="h-6 w-6 text-white" />
+            </Button>
+          </div>
+        </div>
+      </nav>
+      
+      {/* Mobile Menu */}
+      <MobileMenu isOpen={mobileMenuOpen} onClose={() => setMobileMenuOpen(false)} />
+      
       {/* Hero Section */}
-      <section className="h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden pt-16">
+      <section className="min-h-screen flex flex-col items-center justify-center px-4 relative overflow-hidden pt-16">
         <div className="absolute inset-0 w-full h-full">
           <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-purple-900/20 via-black/40 to-black/80"></div>
           <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJncmlkIiB3aWR0aD0iNDAiIGhlaWdodD0iNDAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxwYXRoIGQ9Ik0gNDAgMCBMIDAgMCAwIDQwIiBmaWxsPSJub25lIiBzdHJva2U9IiM4YjVjZjYiIHN0cm9rZS13aWR0aD0iMC41Ii8+PC9wYXR0ZXJuPjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSJ1cmwoI2dyaWQpIiBvcGFjaXR5PSIwLjEiLz48L3N2Zz4=')]"></div>
         </div>
-        <div className="container mx-auto z-10 text-center space-y-6 max-w-4xl">
+        <div className="container mx-auto z-10 text-center space-y-6 max-w-4xl animate-on-scroll">
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight leading-none">
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-white via-purple-100 to-purple-300">
-              Lisa Isn't a Tool.
+              The Only AI
             </span>
             <br />
             <span className="text-white">
-              She's an AI Workforce.
+              Your Trades Business Needs
             </span>
           </h1>
           <div className="h-16 mb-8">
@@ -74,319 +236,378 @@ const Landing = () => {
               {subheadlines[animatedText]}
             </p>
           </div>
-          <div className="flex flex-col md:flex-row gap-4 justify-center">
-            <Button asChild className="rounded-full bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg group transition-all duration-300">
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button asChild className="rounded-full bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg group transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.3)] hover:shadow-[0_0_20px_rgba(255,255,255,0.5)]">
               <Link to="/voice/login">
-                <span>Explore Lisa's Brain</span>
-                <div className="ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-                  <ArrowRight className="h-5 w-5" />
-                </div>
-              </Link>
-            </Button>
-            <Button asChild className="rounded-full bg-transparent border border-purple-400 text-white hover:bg-purple-900/30 px-8 py-6 text-lg group transition-all duration-300">
-              <Link to="/voice/login">
-                <span>Log In</span>
+                <span>Get Started Free</span>
                 <ArrowRight className="h-5 w-5 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
               </Link>
             </Button>
+            <Button asChild className="rounded-full bg-transparent border border-purple-400 text-white hover:bg-purple-900/30 px-8 py-6 text-lg group transition-all duration-300">
+              <Link to="/">
+                <span className="flex items-center">
+                  <Play className="h-5 w-5 mr-2" />
+                  Watch Demo
+                </span>
+              </Link>
+            </Button>
           </div>
         </div>
-      </section>
-
-      {/* Problem Clarity Section */}
-      <section className="py-24 bg-black/40 backdrop-blur-md">
-        <div className="container mx-auto px-4 overflow-hidden">
-          <h2 className="text-3xl md:text-4xl font-bold text-white mb-12 text-center">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-purple-600">
-              Why Your Team Feels Overworked
-            </span>
-            <span className="text-white"> (and It's Not Their Fault)</span>
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              { title: "Missed Calls", icon: <Headphones className="w-10 h-10 text-purple-400" /> },
-              { title: "Late Invoices", icon: <BarChart className="w-10 h-10 text-purple-400" /> },
-              { title: "Unassigned Jobs", icon: <Construction className="w-10 h-10 text-purple-400" /> },
-              { title: "Missed Follow-ups", icon: <Calendar className="w-10 h-10 text-purple-400" /> },
-              { title: "Inspection Chaos", icon: <Zap className="w-10 h-10 text-purple-400" /> },
-            ].map((item, i) => (
-              <Card key={i} className="bg-white/5 backdrop-blur-lg border border-purple-500/20 rounded-xl hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-500 overflow-hidden group">
-                <CardContent className="p-6 flex flex-col items-center text-center">
-                  <div className="mb-6 transform transition-all duration-300 group-hover:scale-110">
-                    {item.icon}
-                  </div>
-                  <h3 className="text-xl font-semibold mb-2 text-white">{item.title}</h3>
-                  <p className="text-purple-200/70">
-                    Your team struggles with {item.title.toLowerCase()} daily, causing revenue leaks and customer dissatisfaction.
-                  </p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        
+        {/* Animated Down Arrow */}
+        <div className="absolute bottom-10 left-1/2 transform -translate-x-1/2 animate-bounce">
+          <ArrowRight className="h-8 w-8 text-purple-400 rotate-90" />
         </div>
       </section>
-
-      {/* Revenue Loss Section */}
-      <section className="py-24 relative">
-        <div className="absolute inset-0 bg-gradient-to-b from-black/50 to-purple-900/20"></div>
-        <div className="container mx-auto px-4 relative z-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-purple-400">
-              Revenue Loss
-            </span>
-            <span className="text-white"> from Manual Processes</span>
-          </h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {[
-              { metric: "$4,500", title: "Lost Monthly Per Missed Call", icon: <Headphones /> },
-              { metric: "32%", title: "Late Payments Impact Cash Flow", icon: <BarChart /> },
-              { metric: "12hrs", title: "Weekly Admin Time", icon: <Calendar /> },
-              { metric: "28%", title: "Profit Margin Reduction", icon: <Zap /> },
-            ].map((item, i) => (
-              <div key={i} className="bg-gradient-to-br from-black/60 to-purple-900/30 backdrop-blur-lg p-6 rounded-xl border border-purple-500/20 flex flex-col items-center text-center transform transition-all hover:translate-y-[-5px] hover:shadow-lg hover:shadow-purple-500/10 duration-300">
-                <div className="mb-4 p-3 rounded-full bg-purple-500/20">
-                  {item.icon}
+      
+      {/* Proof Strip */}
+      <section className="py-12 bg-black/40 backdrop-blur-md">
+        <div className="container mx-auto px-4">
+          <p className="text-center text-purple-300 mb-8">Trusted by leading trades businesses</p>
+          <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16">
+            {partnerLogos.map((partner, i) => (
+              <div key={i} className="flex items-center justify-center">
+                <div className="w-12 h-12 bg-purple-900/30 backdrop-blur-sm rounded-full flex items-center justify-center border border-purple-500/20">
+                  <span className="text-purple-300 font-bold">{partner.logo}</span>
                 </div>
-                <div className="text-3xl font-bold text-white mb-2">{item.metric}</div>
-                <div className="text-purple-200/70">{item.title}</div>
+                <span className="ml-2 text-white/70">{partner.name}</span>
               </div>
             ))}
           </div>
         </div>
       </section>
-
-      {/* Modular Product Suite */}
-      <section className="py-24 bg-gradient-to-t from-purple-900/10 to-black/40 backdrop-blur-lg">
+      
+      {/* Explainer Section */}
+      <section className="py-24 relative overflow-hidden animate-on-scroll">
+        <div className="absolute inset-0">
+          <div className="absolute top-0 right-0 w-1/2 h-1/2 bg-purple-600/5 blur-3xl rounded-full"></div>
+          <div className="absolute bottom-0 left-0 w-1/2 h-1/2 bg-pink-600/5 blur-3xl rounded-full"></div>
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
+          <div className="text-center mb-16 max-w-3xl mx-auto">
+            <h2 className="text-3xl md:text-4xl font-bold mb-6">
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+                An AI Workforce You Deploy —
+              </span>
+              <span className="text-white"> Not Manage.</span>
+            </h2>
+            <p className="text-lg text-purple-100/80">
+              LISA's AI agents work like employees but without the overhead. They learn your processes, integrate with your systems, and handle repetitive tasks 24/7.
+            </p>
+          </div>
+          
+          {/* AI Brain Visualization */}
+          <div className="relative max-w-4xl mx-auto h-[600px]">
+            {/* Central Brain */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-40 h-40 bg-gradient-to-br from-purple-600/30 to-pink-600/30 rounded-full flex items-center justify-center border border-purple-500/30 backdrop-blur-md z-20 shadow-[0_0_30px_rgba(139,92,246,0.3)]">
+              <Bot className="w-16 h-16 text-purple-300" />
+              <div className="absolute inset-0 rounded-full border border-purple-500/20 animate-pulse"></div>
+            </div>
+            
+            {/* Orbital Paths */}
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[500px] h-[500px] border border-purple-500/10 rounded-full"></div>
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] border border-pink-500/10 rounded-full"></div>
+            <div className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[200px] h-[200px] border border-indigo-500/10 rounded-full"></div>
+            
+            {/* Agent Orbitals */}
+            {agentData.map((agent, i) => {
+              const angle = (i * (360 / agentData.length)) * (Math.PI / 180);
+              const radius = 200 + (i % 2) * 75; // Alternate between inner and outer orbital
+              const x = Math.cos(angle) * radius;
+              const y = Math.sin(angle) * radius;
+              
+              return (
+                <div 
+                  key={i}
+                  className="absolute w-16 h-16 bg-gradient-to-br from-purple-700/30 to-pink-700/30 backdrop-blur-md rounded-full flex items-center justify-center border border-purple-500/30 transform -translate-x-1/2 -translate-y-1/2 shadow-lg hover:scale-110 transition-transform cursor-pointer"
+                  style={{
+                    left: `calc(50% + ${x}px)`,
+                    top: `calc(50% + ${y}px)`,
+                  }}
+                >
+                  {agent.icon}
+                  <div className="absolute whitespace-nowrap mt-20 left-1/2 transform -translate-x-1/2 text-sm font-medium text-white">
+                    {agent.title}
+                  </div>
+                </div>
+              );
+            })}
+            
+            {/* Connection Lines - Animated */}
+            <svg className="absolute inset-0 w-full h-full z-10" xmlns="http://www.w3.org/2000/svg">
+              <defs>
+                <linearGradient id="lineGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                  <stop offset="0%" stopColor="#8b5cf6" stopOpacity="0.1" />
+                  <stop offset="50%" stopColor="#8b5cf6" stopOpacity="0.4" />
+                  <stop offset="100%" stopColor="#8b5cf6" stopOpacity="0.1" />
+                </linearGradient>
+              </defs>
+              
+              {/* Decorative Paths */}
+              <path d="M 200,300 Q 300,200 400,300" stroke="url(#lineGradient)" strokeWidth="1" fill="none" />
+              <path d="M 300,200 Q 400,300 500,200" stroke="url(#lineGradient)" strokeWidth="1" fill="none" />
+              <path d="M 250,400 Q 300,300 350,400" stroke="url(#lineGradient)" strokeWidth="1" fill="none" />
+            </svg>
+          </div>
+        </div>
+      </section>
+      
+      {/* Agents Section */}
+      <section className="py-24 bg-gradient-to-t from-purple-900/10 to-black/40 backdrop-blur-lg animate-on-scroll">
         <div className="container mx-auto px-4">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-              Modular Product Suite
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              Meet LISA's AI Agents
             </span>
           </h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              { 
-                title: "AI Calling", 
-                description: "Lisa handles all your calls and never misses a lead", 
-                icon: <Headphones className="w-8 h-8" /> 
-              },
-              { 
-                title: "Smart Scheduling", 
-                description: "Optimize technician routes and appointment slots", 
-                icon: <Calendar className="w-8 h-8" /> 
-              },
-              { 
-                title: "Invoice Management", 
-                description: "Automated invoice follow-ups and payment tracking", 
-                icon: <BarChart className="w-8 h-8" /> 
-              },
-              { 
-                title: "Field Operations", 
-                description: "Real-time job tracking and technician coordination", 
-                icon: <Construction className="w-8 h-8" /> 
-              },
-              { 
-                title: "Data Analytics", 
-                description: "Actionable insights to grow your business", 
-                icon: <Zap className="w-8 h-8" /> 
-              },
-              { 
-                title: "AI Integration", 
-                description: "Seamless connection with your existing tools", 
-                icon: <Bot className="w-8 h-8" /> 
-              },
-            ].map((item, i) => (
-              <Card 
-                key={i} 
-                className="glass-morphism bg-black/20 backdrop-blur-lg border border-purple-500/20 rounded-xl overflow-hidden group hover:bg-purple-900/10 transition-all duration-300"
-              >
-                <CardContent className="p-8">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-purple-500/20 p-3 rounded-lg mr-4 group-hover:bg-purple-500/30 transition-all duration-300">
-                      {item.icon}
-                    </div>
-                    <h3 className="text-xl font-semibold text-white">{item.title}</h3>
-                  </div>
-                  <p className="text-purple-100/70 mb-6">{item.description}</p>
-                  <Button asChild className="text-purple-400 group-hover:text-purple-300 transition-all duration-300">
-                    <Link to="/voice/login" className="flex items-center">
-                      <span className="mr-2 font-medium">Learn more</span>
-                      <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-all duration-300" />
-                    </Link>
-                  </Button>
-                </CardContent>
-              </Card>
+            {agentData.map((agent, i) => (
+              <AgentCard
+                key={i}
+                title={agent.title}
+                description={agent.description}
+                icon={agent.icon}
+                colorGradient={agent.color}
+              />
             ))}
           </div>
         </div>
       </section>
-
-      {/* How Lisa Thinks Section */}
-      <section className="py-24 relative">
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJkb3RzIiB3aWR0aD0iMzAiIGhlaWdodD0iMzAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxjaXJjbGUgY3g9IjIiIGN5PSIyIiByPSIxIiBmaWxsPSIjOGI1Y2Y2IiBmaWxsLW9wYWNpdHk9IjAuMiIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNkb3RzKSIvPjwvc3ZnPg==')]" style={{ opacity: 0.4 }}></div>
+      
+      {/* Testimonial Section */}
+      <section className="py-24 relative animate-on-scroll">
+        <div className="absolute inset-0">
+          <div className="absolute top-1/2 left-1/4 w-1/4 h-1/4 bg-purple-600/10 blur-3xl rounded-full"></div>
+          <div className="absolute top-1/3 right-1/4 w-1/4 h-1/4 bg-pink-600/10 blur-3xl rounded-full"></div>
+        </div>
         <div className="container mx-auto px-4 relative z-10">
           <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-            <span className="text-white">This is </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-purple-600">
-              Lisa's Brain
+            <span className="text-white">What Our </span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              Customers Say
             </span>
-            <span className="text-white"> on Ops</span>
           </h2>
           
-          <div className="relative py-10 max-w-4xl mx-auto">
-            {/* Flow line */}
-            <div className="absolute left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-600/80 to-purple-900/40 transform -translate-x-1/2"></div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {testimonialData.map((testimonial, i) => (
+              <TestimonialCard
+                key={i}
+                quote={testimonial.quote}
+                name={testimonial.name}
+                title={testimonial.title}
+                avatar={testimonial.avatar}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+      
+      {/* Demo CTA Section */}
+      <section className="py-16 px-4 animate-on-scroll">
+        <div className="container mx-auto max-w-4xl">
+          <div className="relative rounded-2xl overflow-hidden">
+            <div className="absolute inset-0 bg-gradient-to-br from-purple-800/80 to-pink-800/80 backdrop-blur-xl"></div>
+            <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciPjxkZWZzPjxwYXR0ZXJuIGlkPSJkb3RzIiB3aWR0aD0iMzAiIGhlaWdodD0iMzAiIHBhdHRlcm5Vbml0cz0idXNlclNwYWNlT25Vc2UiPjxjaXJjbGUgY3g9IjIiIGN5PSIyIiByPSIxIiBmaWxsPSIjZmZmIiBmaWxsLW9wYWNpdHk9IjAuMiIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNkb3RzKSIvPjwvc3ZnPg==')] opacity-20"></div>
             
-            {[
-              { 
-                title: "Lead Generation", 
-                description: "Lisa identifies and qualifies leads through AI-driven conversations", 
-                icon: <Book className="w-6 h-6" /> 
-              },
-              { 
-                title: "AI Calling", 
-                description: "Lisa handles calls, qualifying leads and scheduling appointments", 
-                icon: <Headphones className="w-6 h-6" /> 
-              },
-              { 
-                title: "Smart Scheduling", 
-                description: "Optimizing technician routes and appointment slots based on location and urgency", 
-                icon: <Calendar className="w-6 h-6" /> 
-              },
-              { 
-                title: "Field Operations", 
-                description: "Real-time coordination and adaptive scheduling for technicians", 
-                icon: <Construction className="w-6 h-6" /> 
-              },
-              { 
-                title: "Revenue Optimization", 
-                description: "Streamlined invoice processing and follow-ups to improve cash flow", 
-                icon: <BarChart className="w-6 h-6" /> 
-              },
-            ].map((item, i) => (
-              <div key={i} className="relative ml-10 md:ml-0 md:grid md:grid-cols-5 mb-16 last:mb-0">
-                <div className={`hidden md:flex md:col-span-2 ${i % 2 === 0 ? 'justify-end md:pr-12' : 'md:order-2 justify-start md:pl-12'}`}>
-                  <div className={`relative flex items-center ${i % 2 === 0 ? 'justify-end text-right' : 'justify-start text-left'}`}>
-                    <div className="bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-xl p-6 max-w-xs">
-                      <h3 className="text-xl font-semibold mb-2 text-white">{item.title}</h3>
-                      <p className="text-purple-200/70">{item.description}</p>
-                    </div>
-                  </div>
-                </div>
-                
-                <div className="absolute md:relative md:col-span-1 flex justify-center">
-                  <div className="absolute md:relative bg-purple-500 rounded-full w-4 h-4 left-[-32px] md:left-auto transform md:transform-none md:translate-x-0 top-7 md:top-12">
-                    <div className="absolute w-10 h-10 bg-purple-500/30 rounded-full -left-3 -top-3 animate-pulse"></div>
-                  </div>
-                </div>
-
-                {/* Mobile only content */}
-                <div className="md:hidden bg-purple-900/20 backdrop-blur-sm border border-purple-500/20 rounded-xl p-6">
-                  <h3 className="text-xl font-semibold mb-2 text-white">{item.title}</h3>
-                  <p className="text-purple-200/70">{item.description}</p>
-                </div>
-                
-                <div className={`hidden md:block md:col-span-2 ${i % 2 === 1 ? 'md:order-1 md:pr-12' : 'md:pl-12'}`}>
-                </div>
+            <div className="relative px-8 py-12 md:p-16 text-center">
+              <h2 className="text-2xl md:text-3xl lg:text-4xl font-bold mb-6 text-white">
+                Want to see how your team could run faster, leaner, smarter with LISA?
+              </h2>
+              <p className="text-lg text-purple-100/90 mb-8 max-w-xl mx-auto">
+                Experience the power of AI automation firsthand and see immediate ROI for your trades business.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                <Button asChild className="rounded-full bg-white text-purple-900 hover:bg-purple-50 px-8 py-6 text-lg group transition-all duration-300 shadow-[0_0_15px_rgba(255,255,255,0.2)]">
+                  <Link to="/">
+                    <span>Book a Demo</span>
+                    <ArrowRight className="h-5 w-5 ml-2 opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                  </Link>
+                </Button>
+                <Button asChild className="rounded-full bg-transparent border border-white text-white hover:bg-white/10 px-8 py-6 text-lg group transition-all duration-300">
+                  <Link to="/">
+                    <span className="flex items-center">
+                      <Play className="h-5 w-5 mr-2" />
+                      Try an Agent Live
+                    </span>
+                  </Link>
+                </Button>
               </div>
-            ))}
+              <p className="text-sm text-purple-200/70 mt-6">No credit card required. No commitment.</p>
+            </div>
           </div>
         </div>
       </section>
-
-      {/* Tech Stack + Reassurance */}
-      <section className="py-24 bg-gradient-to-b from-black/60 to-purple-900/5 backdrop-blur-lg">
+      
+      {/* ROI Calculator Section */}
+      <section className="py-24 bg-gradient-to-t from-black/60 to-purple-900/10 backdrop-blur-lg animate-on-scroll">
         <div className="container mx-auto px-4">
-          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-blue-400">
-              Real AI. Real Operations.
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-6">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              Calculate Your LISA ROI
             </span>
-            <span className="text-white"> No Fluff.</span>
+          </h2>
+          <p className="text-center text-purple-100/80 max-w-2xl mx-auto mb-16">
+            See how much time and money your business could save by implementing LISA's AI agents.
+          </p>
+          
+          <RoiCalculator />
+        </div>
+      </section>
+      
+      {/* Why LISA Section */}
+      <section className="py-24 relative animate-on-scroll">
+        <div className="absolute inset-0">
+          <div className="absolute bottom-0 right-0 w-1/3 h-1/3 bg-purple-600/5 blur-3xl rounded-full"></div>
+        </div>
+        <div className="container mx-auto px-4 relative z-10">
+          <h2 className="text-3xl md:text-4xl font-bold text-center mb-16">
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              Why Choose
+            </span>
+            <span className="text-white"> LISA?</span>
           </h2>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-            {[
-              { 
-                title: "Built on GPT + proprietary ops engine", 
-                description: "Lisa combines advanced language models with specialized operations logic for field service businesses.",
-                icon: <Bot className="w-8 h-8 text-purple-400" />
-              },
-              { 
-                title: "Integrates with your existing tools", 
-                description: "Seamless connections with Salesforce, ServiceTitan, and other field service management platforms.", 
-                icon: <Zap className="w-8 h-8 text-purple-400" />
-              },
-              { 
-                title: "Privacy-first, SOC2-ready", 
-                description: "Enterprise-grade security with full compliance and data protection built into every interaction.",
-                icon: <Construction className="w-8 h-8 text-purple-400" />
-              },
-              { 
-                title: "AI learns from your workflows", 
-                description: "Lisa adapts to your specific business processes and improves over time with each interaction.",
-                icon: <Book className="w-8 h-8 text-purple-400" />
-              },
-            ].map((item, i) => (
-              <div key={i} className="flex border border-purple-500/20 rounded-xl bg-black/20 backdrop-blur-sm p-6">
-                <div className="mr-4 mt-1">
-                  {item.icon}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
+            {benefits.map((benefit, i) => (
+              <div key={i} className="bg-gradient-to-br from-purple-900/20 to-pink-900/20 backdrop-blur-md border border-purple-500/20 rounded-xl p-8 hover:shadow-lg hover:shadow-purple-500/10 transition-all duration-300 hover:scale-105">
+                <div className="bg-gradient-to-br from-purple-500 to-pink-500 w-14 h-14 rounded-full flex items-center justify-center mb-6">
+                  {benefit.icon}
                 </div>
-                <div>
-                  <h3 className="text-lg font-semibold mb-2 text-white">{item.title}</h3>
-                  <p className="text-purple-200/80">{item.description}</p>
-                </div>
+                <h3 className="text-xl font-bold mb-4 text-white">{benefit.title}</h3>
+                <p className="text-purple-100/80">{benefit.description}</p>
               </div>
             ))}
           </div>
+          
+          <div className="mt-20 text-center">
+            <div className="inline-flex items-center justify-center flex-col sm:flex-row gap-2 sm:gap-8 mb-10">
+              {[
+                { label: "ROI within 30 days", icon: <Check className="h-5 w-5 text-green-400" /> },
+                { label: "24/7 AI operation", icon: <Check className="h-5 w-5 text-green-400" /> },
+                { label: "No code setup", icon: <Check className="h-5 w-5 text-green-400" /> },
+              ].map((item, i) => (
+                <div key={i} className="flex items-center">
+                  {item.icon}
+                  <span className="ml-2 text-purple-100">{item.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
         </div>
       </section>
-
-      {/* Closing CTA */}
-      <section className="py-24 relative overflow-hidden">
+      
+      {/* Final CTA */}
+      <section className="py-24 relative overflow-hidden animate-on-scroll">
         <div className="absolute inset-0">
           <div className="absolute left-1/2 top-1/2 w-[80vh] h-[80vh] bg-purple-600/10 rounded-full blur-3xl transform -translate-x-1/2 -translate-y-1/2"></div>
         </div>
         <div className="container mx-auto px-4 relative z-10 text-center">
           <h2 className="text-3xl md:text-5xl font-bold mb-6">
-            <span className="text-white">Hire Your First </span>
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-purple-600">
-              AI Team Member
+            <span className="text-white">Ready to </span>
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-pink-400">
+              Revolutionize
             </span>
+            <span className="text-white"> Your Operations?</span>
           </h2>
           <p className="text-xl text-purple-200/90 mb-10 max-w-2xl mx-auto">
-            Start offloading your repetitive tasks and watch your business grow
+            Join the hundreds of trades businesses already saving time and money with LISA's AI workforce.
           </p>
           <Button 
             asChild
-            className="rounded-full bg-gradient-to-r from-purple-600 to-purple-400 hover:from-purple-700 hover:to-purple-500 text-white px-10 py-6 text-lg group transition-all duration-300"
+            className="rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white px-10 py-6 text-lg group transition-all duration-300 shadow-[0_0_15px_rgba(139,92,246,0.4)]"
           >
             <Link to="/voice/login">
-              <span>Get Started with Lisa</span>
+              <span>Get Started Today</span>
               <ArrowRight className="h-5 w-5 ml-2" />
             </Link>
           </Button>
           <p className="text-sm text-purple-300/60 mt-6">Setup in days. Cancel anytime. No pressure.</p>
         </div>
       </section>
-
-      {/* Simplified Footer */}
-      <footer className="bg-black/80 backdrop-blur-md border-t border-purple-500/20 py-10">
+      
+      {/* Footer */}
+      <footer className="bg-black/80 backdrop-blur-md border-t border-purple-500/20 py-16">
         <div className="container mx-auto px-4">
-          <div className="flex flex-col items-center text-center">
-            <div className="flex items-center mb-4">
-              <Headphones className="h-6 w-6 mr-2 text-purple-400" />
-              <span className="text-2xl font-bold text-white">Lisa AI</span>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
+            {/* Company Info */}
+            <div className="col-span-1">
+              <div className="flex items-center mb-4">
+                <LisaLogo size="sm" />
+              </div>
+              <p className="text-purple-200/70 mb-6">
+                LISA is an AI platform designed specifically for trades businesses, helping them automate operations and scale efficiently.
+              </p>
+              <div className="flex space-x-4">
+                {["", "", "", ""].map((_, i) => (
+                  <a 
+                    key={i}
+                    href="/"
+                    className="w-10 h-10 rounded-full bg-purple-900/30 flex items-center justify-center border border-purple-500/30 hover:bg-purple-900/50 transition-colors"
+                  >
+                    <span className="sr-only">Social Link</span>
+                    <Users className="w-4 h-4 text-purple-300" />
+                  </a>
+                ))}
+              </div>
             </div>
-            <p className="text-purple-200/70 max-w-md mb-6">
-              Lisa is built for the doers. The fixers. The ones who don't have time for admin.
-              We're building AI that works as hard as you do.
-            </p>
+            
+            {/* Navigation Links */}
+            <div className="col-span-1">
+              <h3 className="font-bold mb-4 text-white">Platform</h3>
+              <ul className="space-y-2">
+                {["Agents", "Integrations", "Security", "Pricing"].map((item, i) => (
+                  <li key={i}>
+                    <a href="/" className="text-purple-200/70 hover:text-white transition-colors">
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div className="col-span-1">
+              <h3 className="font-bold mb-4 text-white">Company</h3>
+              <ul className="space-y-2">
+                {["About Us", "Careers", "Blog", "Contact"].map((item, i) => (
+                  <li key={i}>
+                    <a href="/" className="text-purple-200/70 hover:text-white transition-colors">
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            
+            <div className="col-span-1">
+              <h3 className="font-bold mb-4 text-white">Legal</h3>
+              <ul className="space-y-2">
+                {["Terms of Service", "Privacy Policy", "Cookie Policy", "GDPR"].map((item, i) => (
+                  <li key={i}>
+                    <a href="/" className="text-purple-200/70 hover:text-white transition-colors">
+                      {item}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+          
+          <div className="border-t border-purple-500/10 mt-10 pt-8 flex flex-col md:flex-row justify-between items-center">
             <p className="text-purple-200/50 text-sm">
-              © 2025 Lisa AI. All rights reserved.
+              © 2023 LISA AI. All rights reserved.
             </p>
+            <div className="flex space-x-6 mt-4 md:mt-0">
+              <a href="/" className="text-purple-200/70 hover:text-white transition-colors text-sm">
+                Terms
+              </a>
+              <a href="/" className="text-purple-200/70 hover:text-white transition-colors text-sm">
+                Privacy
+              </a>
+              <a href="/" className="text-purple-200/70 hover:text-white transition-colors text-sm">
+                Cookies
+              </a>
+            </div>
           </div>
         </div>
       </footer>
