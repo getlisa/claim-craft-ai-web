@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from "react";
-import { Calendar, ArrowRight, RefreshCw, Loader2, Check, X } from "lucide-react";
+import { Calendar, ArrowRight, RefreshCw, Loader2, Check, X, User, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -247,8 +247,9 @@ const AppointmentsTab: React.FC<AppointmentsTabProps> = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Contact</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Time</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -259,10 +260,19 @@ const AppointmentsTab: React.FC<AppointmentsTabProps> = ({
                         {call.from_number || call.call_id.substring(0, 10)}
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-purple-500" />
+                          <span>{call.client_name || "Unknown"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         {call.appointment_time || "No time specified"}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {call.notes || "-"}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-purple-500" />
+                          <span>{call.client_address || "Not specified"}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
@@ -310,8 +320,9 @@ const AppointmentsTab: React.FC<AppointmentsTabProps> = ({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Contact</TableHead>
+                    <TableHead>Client</TableHead>
                     <TableHead>Date & Time</TableHead>
-                    <TableHead>Notes</TableHead>
+                    <TableHead>Address</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -322,10 +333,19 @@ const AppointmentsTab: React.FC<AppointmentsTabProps> = ({
                         {call.from_number || call.call_id.substring(0, 10)}
                       </TableCell>
                       <TableCell>
+                        <div className="flex items-center gap-1">
+                          <User className="h-3 w-3 text-purple-500" />
+                          <span>{call.client_name || "Unknown"}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell>
                         {formatAppointmentDate(call.appointment_date, call.appointment_time)}
                       </TableCell>
                       <TableCell className="max-w-[200px] truncate">
-                        {call.notes || "-"}
+                        <div className="flex items-center gap-1">
+                          <MapPin className="h-3 w-3 text-purple-500" />
+                          <span>{call.client_address || "Not specified"}</span>
+                        </div>
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">

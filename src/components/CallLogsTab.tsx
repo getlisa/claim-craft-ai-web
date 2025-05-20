@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, Edit, Info, Play, Pause, Headphones, Search, Filter, X, Check, X as Xmark, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -70,6 +69,8 @@ const CallLogsTab = ({
     appointment_status: '',
     appointment_date: '',
     appointment_time: '',
+    client_name: '',
+    client_address: '',
     notes: ''
   });
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
@@ -131,6 +132,8 @@ const CallLogsTab = ({
             appointment_status: dbCall.appointment_status || apiCall.appointment_status,
             appointment_date: dbCall.appointment_date || apiCall.appointment_date,
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+            client_name: dbCall.client_name || apiCall.client_name,
+            client_address: dbCall.client_address || apiCall.client_address,
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
             id: dbCall.id
@@ -155,7 +158,6 @@ const CallLogsTab = ({
     }
   };
 
-  // Add missing functions from the component
   const formatDate = (timestamp: string) => {
     if (!timestamp) return "N/A";
     try {
@@ -241,7 +243,6 @@ const CallLogsTab = ({
     return "No summary available for this call.";
   };
 
-  // Handle filtering functions
   const handleFilterChange = (filterName: string, value: string) => {
     setFilters(prev => ({ ...prev, [filterName]: value }));
     
@@ -301,6 +302,8 @@ const CallLogsTab = ({
         call.call_id || '',
         call.call_status || '',
         call.appointment_status || '',
+        call.client_name || '',
+        call.client_address || '',
         call.notes || ''
       ];
       
@@ -363,6 +366,8 @@ const CallLogsTab = ({
       appointment_status: call.appointment_status || '',
       appointment_date: call.appointment_date || '',
       appointment_time: call.appointment_time || '',
+      client_name: call.client_name || '',
+      client_address: call.client_address || '',
       notes: call.notes || ''
     });
     setEditDialogOpen(true);
@@ -381,6 +386,8 @@ const CallLogsTab = ({
         appointment_status: editingCallData.appointment_status,
         appointment_date: editingCallData.appointment_date,
         appointment_time: editingCallData.appointment_time,
+        client_name: editingCallData.client_name,
+        client_address: editingCallData.client_address,
         notes: editingCallData.notes
       };
       
@@ -402,6 +409,8 @@ const CallLogsTab = ({
                 appointment_status: editingCallData.appointment_status,
                 appointment_date: editingCallData.appointment_date,
                 appointment_time: editingCallData.appointment_time,
+                client_name: editingCallData.client_name,
+                client_address: editingCallData.client_address,
                 notes: editingCallData.notes
               } 
             : call
@@ -446,6 +455,8 @@ const CallLogsTab = ({
         appointment_status: 'scheduled',
         appointment_date: date,
         appointment_time: time,
+        client_name: selectedCall?.client_name || "",
+        client_address: selectedCall?.client_address || "",
         from_number: selectedCall?.from_number || "",
         updated_at: new Date().toISOString()
       };
@@ -577,12 +588,14 @@ const CallLogsTab = ({
     try {
       const extractedData = await extractAppointmentDetails(call.transcript);
       
-      if (extractedData.appointmentDate || extractedData.appointmentTime) {
+      if (extractedData.appointmentDate || extractedData.appointmentTime || extractedData.clientName || extractedData.clientAddress) {
         // We found appointment data
         const updatedCall = {
           ...call,
           appointment_date: extractedData.appointmentDate,
           appointment_time: extractedData.appointmentTime,
+          client_name: extractedData.clientName,
+          client_address: extractedData.clientAddress,
           appointment_status: 'in-process',
           suggestedResponse: extractedData.suggestedResponse,
           confidence: extractedData.confidence
@@ -799,11 +812,11 @@ const CallLogsTab = ({
           <TableHeader>
             <TableRow>
               <TableHead>From Number</TableHead>
+              <TableHead>Client Name</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
-              <TableHead>Duration</TableHead>
-              <TableHead>Appointment Status</TableHead>
-              <TableHead>Appointment Date</TableHead>
+              <TableHead>Appointment</TableHead>
+              <TableHead>Address</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -812,11 +825,11 @@ const CallLogsTab = ({
               Array(5).fill(0).map((_, index) => (
                 <TableRow key={`loading-${index}`}>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[60px]" /></TableCell>
                 </TableRow>
               ))
@@ -851,6 +864,9 @@ const CallLogsTab = ({
                       {call.from_number ? call.from_number : (call.call_id ? call.call_id.substring(0, 8) + "..." : "N/A")}
                     </TableCell>
                     <TableCell>
+                      {call.client_name || <span className="text-gray-400">Not available</span>}
+                    </TableCell>
+                    <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
                         {call.call_status || "unknown"}
                       </span>
@@ -859,53 +875,23 @@ const CallLogsTab = ({
                       {formatDate(call.start_timestamp)}
                     </TableCell>
                     <TableCell>
-                      {formatDuration(call)}
-                    </TableCell>
-                    <TableCell>
                       {call.appointment_status ? (
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAppointmentStatusColor(call.appointment_status)}`}>
-                          {call.appointment_status}
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">Not set</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {call.appointment_date ? (
-                        <div className="flex items-center">
-                          <Calendar className="h-3 w-3 mr-1 text-gray-500" />
-                          <span>{call.appointment_date} {call.appointment_time}</span>
-                          
-                          {call.appointment_status === 'in-process' && (
-                            <div className="flex items-center ml-2">
-                              <Button 
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-green-600 hover:text-green-700 hover:bg-green-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleAcceptAppointment(call.appointment_date, call.appointment_time, call.call_id);
-                                }}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button 
-                                size="sm"
-                                variant="ghost"
-                                className="h-6 w-6 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  handleRejectAppointment(call.call_id);
-                                }}
-                              >
-                                <Xmark className="h-4 w-4" />
-                              </Button>
+                        <div>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getAppointmentStatusColor(call.appointment_status)}`}>
+                            {call.appointment_status}
+                          </span>
+                          {call.appointment_date && (
+                            <div className="mt-1 text-xs text-gray-500">
+                              {call.appointment_date} {call.appointment_time && `at ${call.appointment_time}`}
                             </div>
                           )}
                         </div>
                       ) : (
-                        <span className="text-gray-400">Not scheduled</span>
+                        <span className="text-gray-400">Not set</span>
                       )}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {call.client_address || <span className="text-gray-400">Not available</span>}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
@@ -962,21 +948,39 @@ const CallLogsTab = ({
                       {selectedCall.from_number || "Unknown"}
                     </span>
                   </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Client:</span>
+                    <span className="font-medium">
+                      {selectedCall.client_name || "Unknown"}
+                    </span>
+                  </div>
+                  
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Call ID:</span>
                     <span className="font-mono bg-gray-50 px-1.5 py-0.5 rounded text-xs">{selectedCall.call_id}</span>
                   </div>
+                  
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Duration:</span>
                     <span className="font-medium">{formatDuration(selectedCall)}</span>
                   </div>
+                  
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Start Time:</span>
                     <span className="font-medium">{formatDate(selectedCall.start_timestamp)}</span>
                   </div>
+                  
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">End Time:</span>
                     <span className="font-medium">{formatDate(selectedCall.end_timestamp)}</span>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Address:</span>
+                    <span className="font-medium">
+                      {selectedCall.client_address || "Not available"}
+                    </span>
                   </div>
 
                   <div className="flex items-center gap-2">
@@ -1056,124 +1060,6 @@ const CallLogsTab = ({
                 </div>
               </div>
               
-              <div className="flex-1 overflow-hidden">
-                <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-                  <TabsList className="grid w-full grid-cols-3 mb-4">
-                    <TabsTrigger value="summary">
-                      Summary
-                    </TabsTrigger>
-                    <TabsTrigger value="transcript">
-                      Transcript
-                    </TabsTrigger>
-                    <TabsTrigger value="notes">
-                      Notes
-                    </TabsTrigger>
-                  </TabsList>
-                  
-                  <TabsContent value="summary" className="overflow-auto max-h-[50vh] px-1">
-                    <div className="space-y-4">
-                      {selectedCall.recording_url && (
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <h3 className="font-medium mb-3 text-gray-700 flex items-center gap-2">
-                            <Headphones className="h-4 w-4 text-purple-500" />
-                            Audio Recording
-                          </h3>
-                          <div className="flex flex-col gap-3">
-                            <audio 
-                              controls 
-                              src={selectedCall.recording_url}
-                              className="w-full rounded-md shadow-sm"
-                              ref={(audio) => {
-                                if (audio && !audioElement) {
-                                  setAudioElement(audio);
-                                }
-                              }}
-                              onPlay={() => setPlayingAudio(true)}
-                              onPause={() => setPlayingAudio(false)}
-                              onEnded={() => setPlayingAudio(false)}
-                            >
-                              Your browser does not support the audio element.
-                            </audio>
-                          </div>
-                        </div>
-                      )}
-                      
-                      <div className="bg-gray-50 p-4 rounded-md">
-                        <h3 className="font-medium mb-2 text-gray-700">Call Summary</h3>
-                        <p className="text-gray-600 whitespace-pre-line">{getSummary(selectedCall)}</p>
-                      </div>
-                      
-                      {selectedCall.user_sentiment && (
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <h3 className="font-medium mb-3 text-gray-700">Sentiment Analysis</h3>
-                          <div className="space-y-3">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm text-gray-600">User Sentiment:</span>
-                              <Badge className={getSentimentColor(selectedCall.user_sentiment)}>
-                                {selectedCall.user_sentiment}
-                              </Badge>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </TabsContent>
-                  
-                  <TabsContent value="transcript" className="overflow-auto max-h-[50vh] px-1">
-                    {selectedCall.transcript ? (
-                      <div className="bg-gray-50 p-4 rounded-md">
-                        <div className="flex justify-between mb-4">
-                          <h3 className="font-medium text-gray-700">Transcript</h3>
-                          {!selectedCall.appointment_date && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 py-0 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
-                              onClick={() => extractAppointmentFromTranscript(selectedCall)}
-                              disabled={extractingAppointment}
-                            >
-                              {extractingAppointment ? (
-                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              ) : (
-                                <Calendar className="h-3 w-3 mr-1" />
-                              )}
-                              <span className="text-xs">Extract Appointment</span>
-                            </Button>
-                          )}
-                        </div>
-                        <div className="space-y-4">
-                          {selectedCall.transcript.split(/(?<=[.!?])\s+/).filter((line: string) => line.trim().length > 0).map((line: string, index: number) => (
-                            <div key={index} className="p-3 rounded-lg bg-white border border-gray-100 shadow-sm hover:border-purple-200 transition-colors">
-                              <div className="flex gap-2">
-                                <span className="text-purple-500 text-xs font-medium mt-1 bg-purple-50 px-2 py-1 rounded-full">{index + 1}</span>
-                                <p className="text-gray-700">{line.trim()}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-gray-500">
-                        No transcript available for this call.
-                      </div>
-                    )}
-                  </TabsContent>
-                  
-                  <TabsContent value="notes" className="overflow-auto max-h-[50vh] px-1">
-                    {selectedCall.notes ? (
-                      <div className="bg-gray-50 p-4 rounded-md">
-                        <h3 className="font-medium mb-2 text-gray-700">Notes</h3>
-                        <p className="text-gray-600 whitespace-pre-line">{selectedCall.notes}</p>
-                      </div>
-                    ) : (
-                      <div className="text-center py-6 text-gray-500">
-                        No notes available for this call.
-                      </div>
-                    )}
-                  </TabsContent>
-                </Tabs>
-              </div>
-              
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
                   Close
@@ -1214,6 +1100,26 @@ const CallLogsTab = ({
                   <SelectItem value="not-set">Not Set</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="client-name">Client Name</Label>
+              <Input
+                id="client-name"
+                value={editingCallData.client_name || ""}
+                onChange={(e) => setEditingCallData({...editingCallData, client_name: e.target.value})}
+                placeholder="Enter client name"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="client-address">Client Address</Label>
+              <Input
+                id="client-address"
+                value={editingCallData.client_address || ""}
+                onChange={(e) => setEditingCallData({...editingCallData, client_address: e.target.value})}
+                placeholder="Enter client address"
+              />
             </div>
             
             <div className="grid gap-2">

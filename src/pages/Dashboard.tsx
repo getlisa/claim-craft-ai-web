@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
@@ -25,6 +26,8 @@ interface Call {
   appointment_status?: string;
   appointment_date?: string;
   appointment_time?: string;
+  client_name?: string;
+  client_address?: string;
   notes?: string;
   call_analysis?: {
     call_summary?: string;
@@ -94,6 +97,8 @@ const Dashboard = () => {
             appointment_status: dbCall.appointment_status || apiCall.appointment_status,
             appointment_date: dbCall.appointment_date || apiCall.appointment_date,
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+            client_name: dbCall.client_name || apiCall.client_name,
+            client_address: dbCall.client_address || apiCall.client_address,
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
             id: dbCall.id,
@@ -191,8 +196,12 @@ const Dashboard = () => {
           
           // Show toast notification only for high confidence results
           if (updatedCall.confidence > 70) {
+            const details = [];
+            if (updatedCall.appointment_date) details.push(`${updatedCall.appointment_date} at ${updatedCall.appointment_time || 'N/A'}`);
+            if (updatedCall.client_name) details.push(`Client: ${updatedCall.client_name}`);
+            
             toast.success(`Appointment detected for ${updatedCall.from_number || 'a call'}`, {
-              description: `${updatedCall.appointment_date} at ${updatedCall.appointment_time}`
+              description: details.join(' • ')
             });
           }
         }

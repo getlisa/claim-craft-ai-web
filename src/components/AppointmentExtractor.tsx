@@ -10,7 +10,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Clock, Calendar, Sparkles } from "lucide-react";
+import { Clock, Calendar, Sparkles, User, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -33,6 +33,8 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
   const [loading, setLoading] = useState(false);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
   const [extractedTime, setExtractedTime] = useState<string | null>(null);
+  const [clientName, setClientName] = useState<string | null>(null);
+  const [clientAddress, setClientAddress] = useState<string | null>(null);
   const [confidence, setConfidence] = useState<number>(0);
   const [suggestedResponse, setSuggestedResponse] = useState<string | null>(null);
 
@@ -55,6 +57,8 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
       
       setExtractedDate(result.appointmentDate);
       setExtractedTime(result.appointmentTime);
+      setClientName(result.clientName);
+      setClientAddress(result.clientAddress);
       setConfidence(result.confidence);
       setSuggestedResponse(result.suggestedResponse);
       
@@ -122,7 +126,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
           </div>
         )}
         
-        {!loading && (extractedDate || extractedTime) && (
+        {!loading && (extractedDate || extractedTime || clientName || clientAddress) && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -140,6 +144,26 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
                 </div>
                 <div className="font-semibold">
                   {getFormattedTime() || "Not specified"}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 pt-1">
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-500 flex items-center">
+                  <User className="mr-1 h-4 w-4" /> Client
+                </div>
+                <div className="font-semibold">
+                  {clientName || "Not specified"}
+                </div>
+              </div>
+              
+              <div className="space-y-1">
+                <div className="text-sm font-medium text-gray-500 flex items-center">
+                  <MapPin className="mr-1 h-4 w-4" /> Address
+                </div>
+                <div className="font-semibold text-sm">
+                  {clientAddress || "Not specified"}
                 </div>
               </div>
             </div>
