@@ -5,8 +5,13 @@ import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CallList from "./CallList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, RefreshCw, Settings as SettingsIcon } from "lucide-react";
-import ApiKeySettings from "./ApiKeySettings";
+import { Loader2, RefreshCw } from "lucide-react";
+import { 
+  ChartContainer, 
+  ChartTooltip, 
+  ChartTooltipContent
+} from "@/components/ui/chart";
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, CartesianGrid, Cell } from "recharts";
 
 interface DashboardTabProps {
   initialCalls: any[];
@@ -15,6 +20,17 @@ interface DashboardTabProps {
   refreshCalls: () => Promise<void>;
   updateCall: (updatedCall: any) => void;
 }
+
+// Function to get sentiment color
+const getSentimentColor = (sentiment: string | undefined) => {
+  if (!sentiment) return "#9CA3AF"; // gray for undefined
+  switch (sentiment.toLowerCase()) {
+    case "positive": return "#10B981"; // green
+    case "neutral": return "#6366F1"; // indigo
+    case "negative": return "#EF4444"; // red
+    default: return "#9CA3AF"; // gray for unknown
+  }
+};
 
 const DashboardTab = ({
   initialCalls,
@@ -26,7 +42,6 @@ const DashboardTab = ({
   const [loading, setLoading] = useState(initialLoading);
   const [calls, setCalls] = useState<any[]>(initialCalls);
   const [activeTab, setActiveTab] = useState("all");
-  const [showSettings, setShowSettings] = useState(false);
   
   // Update local state when props change
   useEffect(() => {
@@ -46,6 +61,26 @@ const DashboardTab = ({
       setLoading(false);
     }
   };
+  
+  // Get latest 5 calls
+  const latestCalls = [...calls]
+    .sort((a, b) => new Date(b.start_timestamp).getTime() - new Date(a.start_timestamp).getTime())
+    .slice(0, 5);
+  
+  // Prepare sentiment data for chart
+  const sentimentCounts = {
+    positive: calls.filter(call => call.user_sentiment?.toLowerCase() === "positive").length,
+    neutral: calls.filter(call => call.user_sentiment?.toLowerCase() === "neutral").length,
+    negative: calls.filter(call => call.user_sentiment?.toLowerCase() === "negative").length,
+    unknown: calls.filter(call => !call.user_sentiment).length
+  };
+  
+  const sentimentData = [
+    { name: "Positive", value: sentimentCounts.positive, color: "#10B981" },
+    { name: "Neutral", value: sentimentCounts.neutral, color: "#6366F1" },
+    { name: "Negative", value: sentimentCounts.negative, color: "#EF4444" },
+    { name: "Unknown", value: sentimentCounts.unknown, color: "#9CA3AF" }
+  ];
   
   // Filter calls based on active tab
   const filteredCalls = calls.filter(call => {
@@ -75,26 +110,12 @@ const DashboardTab = ({
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Your Dashboard</h2>
         <div className="flex gap-2">
-          <Button 
-            onClick={() => setShowSettings(!showSettings)} 
-            variant="outline" 
-            className="flex gap-2 items-center"
-          >
-            <SettingsIcon className="h-4 w-4" />
-            {showSettings ? "Hide Settings" : "Settings"}
-          </Button>
           <Button onClick={handleRefresh} disabled={loading} variant="outline" className="flex gap-2 items-center">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh Calls
           </Button>
         </div>
       </div>
-      
-      {showSettings && (
-        <div className="mb-6">
-          <ApiKeySettings />
-        </div>
-      )}
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card>
@@ -131,6 +152,64 @@ const DashboardTab = ({
           </CardContent>
         </Card>
       </div>
+      
+      {/* Sentiment Analysis Chart */}
+      <Card>
+        <CardHeader>
+          <CardTitle>User Sentiment Analysis</CardTitle>
+          <CardDescription>Distribution of call sentiments</CardDescription>
+        </CardHeader>
+        <CardContent className="h-80">
+          <ChartContainer 
+            config={{
+              positive: { theme: { light: "#10B981" } },
+              neutral: { theme: { light: "#6366F1" } },
+              negative: { theme: { light: "#EF4444" } },
+              unknown: { theme: { light: "#9CA3AF" } }
+            }}
+          >
+            <BarChart
+              data={sentimentData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 40 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis allowDecimals={false} />
+              <ChartTooltip
+                content={({ active, payload }) => {
+                  if (active && payload && payload.length) {
+                    return (
+                      <div className="rounded-lg border bg-background p-2 shadow-sm">
+                        <div className="font-medium">{payload[0].name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {payload[0].value} calls
+                        </div>
+                      </div>
+                    );
+                  }
+                  return null;
+                }}
+              />
+              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                {sentimentData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ChartContainer>
+        </CardContent>
+      </Card>
+      
+      {/* Latest Calls Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Latest Calls</CardTitle>
+          <CardDescription>Your 5 most recent calls</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <CallList calls={latestCalls} loading={loading} updateCall={updateCall} />
+        </CardContent>
+      </Card>
       
       <Tabs defaultValue="all" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="mb-4">
