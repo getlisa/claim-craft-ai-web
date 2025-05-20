@@ -55,7 +55,7 @@ const Dashboard = () => {
     
     setLoading(true);
     try {
-      // Get calls from API - this might return empty array if API fails
+      // Get calls from API
       const apiCalls = await fetchCallsFromApi(agentId);
       
       // Get ALL calls from database
@@ -64,10 +64,7 @@ const Dashboard = () => {
         .select('*')
         .eq('agent_id', agentId);
       
-      if (dbError) {
-        console.error("Database error:", dbError);
-        toast.error("Could not load data from database");
-      }
+      if (dbError) throw dbError;
       
       // Create a map of database calls by call_id
       const dbCallsMap = new Map();
@@ -77,51 +74,26 @@ const Dashboard = () => {
         });
       }
       
-      // If API calls is empty but we have DB calls, use those
-      let mergedCalls: Call[] = [];
-      
-      if (apiCalls.length === 0 && dbCalls && dbCalls.length > 0) {
-        mergedCalls = dbCalls.map(call => ({
-          ...call,
-          processed: true,
-          // Ensure call_status has a value for display
-          call_status: call.call_status || "unknown",
-          // Ensure timestamps are properly formatted for duration calculations
-          start_timestamp: call.start_timestamp || null,
-          end_timestamp: call.end_timestamp || null
-        }));
-        
-        if (!initialDataLoaded) {
-          toast.info("Using locally stored calls - API connection failed");
-        }
-      } else {
-        // Merge API calls with database data
-        mergedCalls = apiCalls.map(apiCall => {
-          const dbCall = dbCallsMap.get(apiCall.call_id);
-          if (dbCall) {
-            return {
-              ...apiCall,
-              appointment_status: dbCall.appointment_status || apiCall.appointment_status,
-              appointment_date: dbCall.appointment_date || apiCall.appointment_date,
-              appointment_time: dbCall.appointment_time || apiCall.appointment_time,
-              notes: dbCall.notes || apiCall.notes,
-              from_number: dbCall.from_number || apiCall.from_number || "",
-              id: dbCall.id,
-              call_status: apiCall.call_status || dbCall.call_status || "unknown", // Ensure call_status has a value
-              start_timestamp: apiCall.start_timestamp || dbCall.start_timestamp || null,
-              end_timestamp: apiCall.end_timestamp || dbCall.end_timestamp || null,
-              processed: true // Mark calls from DB as processed
-            };
-          }
+      // Merge API calls with database data
+      const mergedCalls = apiCalls.map(apiCall => {
+        const dbCall = dbCallsMap.get(apiCall.call_id);
+        if (dbCall) {
           return {
             ...apiCall,
-            call_status: apiCall.call_status || "unknown", // Ensure call_status has a value
-            start_timestamp: apiCall.start_timestamp || null,
-            end_timestamp: apiCall.end_timestamp || null,
-            processed: false // Mark new calls as not processed
+            appointment_status: dbCall.appointment_status || apiCall.appointment_status,
+            appointment_date: dbCall.appointment_date || apiCall.appointment_date,
+            appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+            notes: dbCall.notes || apiCall.notes,
+            from_number: dbCall.from_number || apiCall.from_number || "",
+            id: dbCall.id,
+            processed: true // Mark calls from DB as processed
           };
-        });
-      }
+        }
+        return {
+          ...apiCall,
+          processed: false // Mark new calls as not processed
+        };
+      });
       
       setCalls(mergedCalls);
       setInitialDataLoaded(true);
@@ -138,7 +110,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [agentId, initialDataLoaded]);
+  }, [agentId]);
 
   // Process call transcripts to extract appointment details
   const processCallTranscripts = async (callsToProcess: Call[]) => {
@@ -198,14 +170,7 @@ const Dashboard = () => {
     if (!updatedCall || !updatedCall.call_id) return;
     
     setCalls(prevCalls => prevCalls.map(call => 
-      call.call_id === updatedCall.call_id ? { 
-        ...call, 
-        ...updatedCall, 
-        processed: true,
-        call_status: updatedCall.call_status || call.call_status || "unknown", // Ensure call_status has a value
-        start_timestamp: updatedCall.start_timestamp || call.start_timestamp || null,
-        end_timestamp: updatedCall.end_timestamp || call.end_timestamp || null
-      } : call
+      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall, processed: true } : call
     ));
     
     // Show a feedback toast
