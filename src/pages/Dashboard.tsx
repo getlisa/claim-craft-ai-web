@@ -55,7 +55,7 @@ const Dashboard = () => {
     
     setLoading(true);
     try {
-      // Get calls from API
+      // Get calls from API - this might return empty array if API fails
       const apiCalls = await fetchCallsFromApi(agentId);
       
       // Get ALL calls from database
@@ -64,7 +64,10 @@ const Dashboard = () => {
         .select('*')
         .eq('agent_id', agentId);
       
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database error:", dbError);
+        toast.error("Could not load data from database");
+      }
       
       // Create a map of database calls by call_id
       const dbCallsMap = new Map();
@@ -74,26 +77,40 @@ const Dashboard = () => {
         });
       }
       
-      // Merge API calls with database data
-      const mergedCalls = apiCalls.map(apiCall => {
-        const dbCall = dbCallsMap.get(apiCall.call_id);
-        if (dbCall) {
+      // If API calls is empty but we have DB calls, use those
+      let mergedCalls: Call[] = [];
+      
+      if (apiCalls.length === 0 && dbCalls && dbCalls.length > 0) {
+        mergedCalls = dbCalls.map(call => ({
+          ...call,
+          processed: true
+        }));
+        
+        if (!initialDataLoaded) {
+          toast.info("Using locally stored calls - API connection failed");
+        }
+      } else {
+        // Merge API calls with database data
+        mergedCalls = apiCalls.map(apiCall => {
+          const dbCall = dbCallsMap.get(apiCall.call_id);
+          if (dbCall) {
+            return {
+              ...apiCall,
+              appointment_status: dbCall.appointment_status || apiCall.appointment_status,
+              appointment_date: dbCall.appointment_date || apiCall.appointment_date,
+              appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+              notes: dbCall.notes || apiCall.notes,
+              from_number: dbCall.from_number || apiCall.from_number || "",
+              id: dbCall.id,
+              processed: true // Mark calls from DB as processed
+            };
+          }
           return {
             ...apiCall,
-            appointment_status: dbCall.appointment_status || apiCall.appointment_status,
-            appointment_date: dbCall.appointment_date || apiCall.appointment_date,
-            appointment_time: dbCall.appointment_time || apiCall.appointment_time,
-            notes: dbCall.notes || apiCall.notes,
-            from_number: dbCall.from_number || apiCall.from_number || "",
-            id: dbCall.id,
-            processed: true // Mark calls from DB as processed
+            processed: false // Mark new calls as not processed
           };
-        }
-        return {
-          ...apiCall,
-          processed: false // Mark new calls as not processed
-        };
-      });
+        });
+      }
       
       setCalls(mergedCalls);
       setInitialDataLoaded(true);
@@ -110,7 +127,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, initialDataLoaded]);
 
   // Process call transcripts to extract appointment details
   const processCallTranscripts = async (callsToProcess: Call[]) => {

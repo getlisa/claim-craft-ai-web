@@ -1,3 +1,4 @@
+
 import { supabase } from "./supabase";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -92,8 +93,8 @@ export async function fetchCallsFromApi(agentId: string) {
   }
   
   try {
-    // Modify the limit parameter to 1000 instead of the default (likely 10)
-    const response = await fetch(`https://api.retellai.com/call?agent_id=${agentId}&limit=1000`, {
+    // Updated to use the correct API endpoint: /calls instead of /call
+    const response = await fetch(`https://api.retellai.com/calls?agent_id=${agentId}&limit=1000`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -102,8 +103,16 @@ export async function fetchCallsFromApi(agentId: string) {
     });
     
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(`API request failed: ${errorData.error || response.statusText}`);
+      // Improved error handling to check if response is JSON or not
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await response.json();
+        throw new Error(`API request failed: ${errorData.error || response.statusText}`);
+      } else {
+        // If not JSON, get text for better error message
+        const errorText = await response.text();
+        throw new Error(`API request failed with status ${response.status}: ${response.statusText}`);
+      }
     }
     
     const data = await response.json();
@@ -117,7 +126,10 @@ export async function fetchCallsFromApi(agentId: string) {
     return data;
   } catch (error) {
     console.error("Failed to fetch calls:", error);
-    throw error;
+    
+    // Return empty array instead of throwing to prevent UI crashes
+    // and allow the app to still work with local data
+    return [];
   }
 }
 
