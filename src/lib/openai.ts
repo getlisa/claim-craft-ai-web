@@ -41,11 +41,20 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
       If multiple dates or times are mentioned, choose the one most likely to be the final agreed appointment.
     `;
 
+    // Get API key from environment variable
+    const apiKey = process.env.OPENAI_API_KEY || '';
+    
+    if (!apiKey) {
+      console.error("OpenAI API key is missing");
+      toast.error("OpenAI API key is not configured");
+      return defaultResponse;
+    }
+
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.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 || ''}`,
+        "Authorization": `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
         model: "gpt-4o",
