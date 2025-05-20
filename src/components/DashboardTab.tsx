@@ -25,6 +25,24 @@ const getSentimentColor = (sentiment: string | undefined) => {
   }
 };
 
+// Helper function to format phone numbers
+const formatPhoneNumber = (phoneNumber: string | undefined): string => {
+  if (!phoneNumber) return "Unknown";
+  
+  // Remove any non-digit characters
+  const cleaned = phoneNumber.replace(/\D/g, '');
+  
+  // Check if it's a valid US number
+  if (cleaned.length === 10) {
+    return `(${cleaned.slice(0, 3)}) ${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+  } else if (cleaned.length === 11 && cleaned[0] === '1') {
+    return `+1 (${cleaned.slice(1, 4)}) ${cleaned.slice(4, 7)}-${cleaned.slice(7)}`;
+  }
+  
+  // If not a standard format, return as is but add a + if it seems international
+  return cleaned.length > 10 ? `+${cleaned}` : phoneNumber;
+};
+
 const DashboardTab = ({
   initialCalls,
   initialLoading,
@@ -112,6 +130,13 @@ const DashboardTab = ({
     .sort((a, b) => new Date(b.start_timestamp).getTime() - new Date(a.start_timestamp).getTime())
     .slice(0, 5);
   
+  // Process calls to ensure they display phone numbers for CallList
+  const processedCalls = latestCalls.map(call => ({
+    ...call,
+    // If the CallList component uses call_id for display, we override it with formatted phone number
+    display_name: formatPhoneNumber(call.from_number)
+  }));
+  
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -176,7 +201,7 @@ const DashboardTab = ({
           <CardDescription>Your 5 most recent calls</CardDescription>
         </CardHeader>
         <CardContent>
-          <CallList calls={latestCalls} loading={loading} updateCall={updateCall} />
+          <CallList calls={processedCalls} loading={loading} updateCall={updateCall} />
         </CardContent>
       </Card>
     </div>
