@@ -8,7 +8,7 @@ import AppLayout from "@/components/layout/AppLayout";
 import { useAuth } from "@/contexts/AuthContext";
 import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
 import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { Loader2, Bell } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { processCallTranscript } from "@/lib/openai";
 
@@ -45,6 +45,7 @@ const Dashboard = () => {
   const [loading, setLoading] = useState(true);
   const [processedCalls, setProcessedCalls] = useState<Set<string>>(new Set());
   const { agentId, isAuthenticated } = useAuth();
+  const [lastKnownCallIds, setLastKnownCallIds] = useState<Set<string>>(new Set());
 
   // Create a fetchCalls function that can be used for initial load and refreshes
   const fetchCalls = useCallback(async () => {
@@ -95,6 +96,36 @@ const Dashboard = () => {
         };
       });
       
+      // Check for new calls
+      const currentCallIds = new Set(mergedCalls.map(call => call.call_id));
+      const hasInitialData = initialDataLoaded && lastKnownCallIds.size > 0;
+      
+      // Find new calls that weren't in the previous set
+      const newCallIds = hasInitialData 
+        ? [...currentCallIds].filter(id => !lastKnownCallIds.has(id))
+        : [];
+      
+      // Update the known call IDs
+      setLastKnownCallIds(currentCallIds);
+      
+      // Notify about new calls if this isn't the initial load
+      if (hasInitialData && newCallIds.length > 0) {
+        const newCalls = mergedCalls.filter(call => newCallIds.includes(call.call_id));
+        
+        if (newCalls.length === 1) {
+          const call = newCalls[0];
+          toast.success(`New call from ${call.from_number || 'unknown number'}`, {
+            icon: <Bell />,
+            description: `Call received at ${new Date(call.start_timestamp || Date.now()).toLocaleTimeString()}`
+          });
+        } else if (newCalls.length > 1) {
+          toast.success(`${newCalls.length} new calls received!`, {
+            icon: <Bell />,
+            description: "Click to view details"
+          });
+        }
+      }
+      
       setCalls(mergedCalls);
       setInitialDataLoaded(true);
       
@@ -110,7 +141,7 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
-  }, [agentId]);
+  }, [agentId, initialDataLoaded, lastKnownCallIds]);
 
   // Process call transcripts to extract appointment details
   const processCallTranscripts = async (callsToProcess: Call[]) => {

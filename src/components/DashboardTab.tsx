@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CallList from "./CallList";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Bell } from "lucide-react";
 
 interface DashboardTabProps {
   initialCalls: any[];
@@ -34,12 +34,48 @@ const DashboardTab = ({
 }: DashboardTabProps) => {
   const [loading, setLoading] = useState(initialLoading);
   const [calls, setCalls] = useState<any[]>(initialCalls);
+  const [autoRefresh, setAutoRefresh] = useState(true);
+  const [lastCallCount, setLastCallCount] = useState(initialCalls.length);
   
   // Update local state when props change
   useEffect(() => {
     setCalls(initialCalls);
     setLoading(initialLoading);
-  }, [initialCalls, initialLoading]);
+    
+    // Check for new calls and notify if there are any
+    if (initialCalls.length > lastCallCount && lastCallCount > 0) {
+      const newCallsCount = initialCalls.length - lastCallCount;
+      toast.success(`${newCallsCount} new call${newCallsCount > 1 ? 's' : ''} received!`, {
+        icon: <Bell className="h-4 w-4" />,
+        description: "Click to view the latest calls"
+      });
+    }
+    
+    // Update the last count
+    setLastCallCount(initialCalls.length);
+  }, [initialCalls, initialLoading, lastCallCount]);
+  
+  // Set up auto-refresh interval
+  useEffect(() => {
+    let intervalId: number | undefined;
+    
+    if (autoRefresh) {
+      intervalId = window.setInterval(async () => {
+        try {
+          await refreshCalls();
+        } catch (error) {
+          console.error("Error during auto-refresh:", error);
+          // Don't show toast on auto-refresh errors to avoid spamming
+        }
+      }, 30000); // Check every 30 seconds
+    }
+    
+    return () => {
+      if (intervalId) {
+        window.clearInterval(intervalId);
+      }
+    };
+  }, [autoRefresh, refreshCalls]);
   
   const handleRefresh = async () => {
     setLoading(true);
@@ -64,6 +100,15 @@ const DashboardTab = ({
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Your Dashboard</h2>
         <div className="flex gap-2">
+          <Button 
+            onClick={() => setAutoRefresh(!autoRefresh)}
+            variant={autoRefresh ? "default" : "outline"}
+            className="flex gap-2 items-center"
+          >
+            <Bell className="h-4 w-4" />
+            {autoRefresh ? "Auto-Refresh On" : "Auto-Refresh Off"}
+          </Button>
+          
           <Button onClick={handleRefresh} disabled={loading} variant="outline" className="flex gap-2 items-center">
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh Calls
