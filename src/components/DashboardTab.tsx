@@ -4,7 +4,6 @@ import { Button } from "./ui/button";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import CallList from "./CallList";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2, RefreshCw } from "lucide-react";
 import { 
   ChartContainer, 
@@ -78,7 +77,7 @@ const DashboardTab = ({
     { name: "Neutral", value: sentimentCounts.neutral, color: "#6366F1" },
     { name: "Negative", value: sentimentCounts.negative, color: "#EF4444" },
     { name: "Unknown", value: sentimentCounts.unknown, color: "#9CA3AF" }
-  ];
+  ].filter(item => item.value > 0); // Only show segments with values
   
   // Custom renderer for the pie chart labels
   const renderCustomizedLabel = ({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name, value }: any) => {
