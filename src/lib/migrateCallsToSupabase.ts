@@ -121,7 +121,7 @@ export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> =>
       },
       body: JSON.stringify({
         filter_criteria: { agent_id: [agentId] },
-        limit: 10
+        limit: 1000,
       })
     });
 
