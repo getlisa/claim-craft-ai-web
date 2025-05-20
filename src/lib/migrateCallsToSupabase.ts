@@ -1,4 +1,3 @@
-
 import { supabase } from "./supabase";
 import { v4 as uuidv4 } from 'uuid';
 
@@ -18,6 +17,8 @@ export interface CallData {
   appointment_time?: string;
   notes?: string;
   suggestedResponse?: string;
+  created_at?: string; // Added created_at to the interface
+  updated_at?: string; // Added updated_at to the interface
 }
 
 export async function migrateCallsToSupabase(agentId: string) {
@@ -168,7 +169,7 @@ export const saveCallToSupabase = async (callData: CallData): Promise<boolean> =
     }
 
     // Clean the data object to remove any fields that don't exist in the database schema
-    const cleanedData = {
+    const cleanedData: CallData = {
       call_id: callData.call_id,
       agent_id: callData.agent_id,
       call_status: callData.call_status,
@@ -196,10 +197,12 @@ export const saveCallToSupabase = async (callData: CallData): Promise<boolean> =
         .eq('id', data[0].id);
     } else {
       // Insert a new record
-      cleanedData.created_at = new Date().toISOString();
       result = await supabase
         .from('call_logs')
-        .insert([cleanedData]);
+        .insert([{
+          ...cleanedData, 
+          created_at: new Date().toISOString()
+        }]);
     }
 
     if (result.error) {
@@ -213,4 +216,3 @@ export const saveCallToSupabase = async (callData: CallData): Promise<boolean> =
     return false;
   }
 };
-

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -6,20 +5,33 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/contexts/AuthContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
 
-const DashboardTab = () => {
+// Define the props interface for DashboardTab
+interface DashboardTabProps {
+  initialCalls?: any[];
+  initialLoading?: boolean;
+  dataLoaded?: boolean;
+  refreshCalls?: () => Promise<void>;
+  updateCall?: (updatedCall: any) => void;
+}
+
+const DashboardTab = ({ initialCalls = [], initialLoading = false }: DashboardTabProps) => {
   const { toast } = useToast();
   const { agentId } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [calls, setCalls] = useState<any[]>([]);
+  const [loading, setLoading] = useState(initialLoading);
+  const [calls, setCalls] = useState<any[]>(initialCalls);
   const [sentimentData, setSentimentData] = useState<any[]>([]);
   const [callStatusData, setCallStatusData] = useState<any[]>([]);
   const [callTrendData, setCallTrendData] = useState<any[]>([]);
 
   useEffect(() => {
-    if (agentId) {
+    // Use initial calls if provided, otherwise fetch calls
+    if (initialCalls && initialCalls.length > 0) {
+      setCalls(initialCalls);
+      processCallData(initialCalls);
+    } else if (agentId) {
       fetchCalls();
     }
-  }, [agentId]);
+  }, [agentId, initialCalls]);
 
   const fetchCalls = async () => {
     try {
