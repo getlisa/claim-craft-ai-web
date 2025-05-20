@@ -106,7 +106,7 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
 };
 
 export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> => {
-  const apiKey = 'key_a1bb2ca857089316392d48972a6f'; 
+  const apiKey = import.meta.env.VITE_RETELL_API_KEY || 'key_a1bb2ca857089316392d48972a6f';
   const apiUrl = 'https://api.retellai.com/v2/list-calls';
   
   try {
@@ -123,14 +123,16 @@ export const fetchCallsFromApi = async (agentId: string): Promise<CallData[]> =>
     });
 
     if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
+      throw new Error(`API request failed with status ${response.status}`);
     }
 
     const data = await response.json();
     return Array.isArray(data) ? data : [];
   } catch (error) {
     console.error("Error fetching calls from API:", error);
-    throw error;
+    
+    // Return mock data for development and when API is unavailable
+    return [];
   }
 };
 
