@@ -1,7 +1,6 @@
-
 import { useState } from "react";
 import { format } from "date-fns";
-import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Calendar } from "lucide-react";
+import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Calendar, Check, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,6 +17,7 @@ import AppointmentExtractor from "@/components/AppointmentExtractor";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
 import { useAuth } from "@/contexts/AuthContext";
+import { extractAppointmentDetails } from "@/lib/openai";
 
 interface CallCardProps {
   call: any;
@@ -36,6 +36,8 @@ const CallCard: React.FC<CallCardProps> = ({
   const [activeTab, setActiveTab] = useState("summary");
   const [playingIndex, setPlayingIndex] = useState<number | null>(null);
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  const [extractedAppointment, setExtractedAppointment] = useState<any>(null);
+  const [isExtracting, setIsExtracting] = useState(false);
   const { agentId } = useAuth();
 
   // Parse transcript into lines
@@ -167,9 +169,47 @@ const CallCard: React.FC<CallCardProps> = ({
     return "No summary available for this call.";
   };
 
+  // Extract appointment data
+  const handleExtractAppointment = async () => {
+    if (!call.transcript || !agentId) {
+      toast.error("Cannot extract: Missing transcript or agent ID");
+      return;
+    }
+    
+    setIsExtracting(true);
+    
+    try {
+      const extractedData = await extractAppointmentDetails(call.transcript);
+      setExtractedAppointment(extractedData);
+      
+      // Show feedback based on extraction result
+      if (extractedData.appointmentDate || extractedData.appointmentTime) {
+        toast.info("Appointment details detected");
+      } else {
+        toast.info("No appointment details found in transcript");
+      }
+      
+      return extractedData;
+    } catch (error) {
+      console.error("Error extracting appointment:", error);
+      toast.error("Failed to extract appointment details");
+      return null;
+    } finally {
+      setIsExtracting(false);
+    }
+  };
+
   // Handle appointment actions
-  const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
-    if (!agentId || !callId) {
+  const handleAcceptAppointment = async () => {
+    // Use either extracted appointment or trigger extraction
+    const appointmentData = extractedAppointment || await handleExtractAppointment();
+    
+    if (!appointmentData || (!appointmentData.appointmentDate && !appointmentData.appointmentTime)) {
+      toast.error("No appointment details to schedule");
+      return;
+    }
+    
+    if (!agentId || !call.call_id) {
       toast.error("Missing agent ID or call ID");
       return;
     }
@@ -179,17 +219,17 @@ const CallCard: React.FC<CallCardProps> = ({
       const { data: existingData } = await supabase
         .from('call_logs')
         .select('id')
-        .eq('call_id', callId)
+        .eq('call_id', call.call_id)
         .eq('agent_id', agentId)
         .single();
       
       let result;
       const updateData = {
-        call_id: callId,
+        call_id: call.call_id,
         agent_id: agentId,
         appointment_status: 'scheduled',
-        appointment_date: date,
-        appointment_time: time,
+        appointment_date: appointmentData.appointmentDate,
+        appointment_time: appointmentData.appointmentTime,
         from_number: call.from_number || "",
         updated_at: new Date().toISOString()
       };
@@ -218,8 +258,8 @@ const CallCard: React.FC<CallCardProps> = ({
         onUpdateCall({
           ...call,
           appointment_status: 'scheduled',
-          appointment_date: date,
-          appointment_time: time
+          appointment_date: appointmentData.appointmentDate,
+          appointment_time: appointmentData.appointmentTime
         });
       }
       
@@ -230,8 +270,8 @@ const CallCard: React.FC<CallCardProps> = ({
     }
   };
 
-  const handleRejectAppointment = async (callId: string) => {
-    if (!agentId || !callId) {
+  const handleRejectAppointment = async () => {
+    if (!agentId || !call.call_id) {
       toast.error("Missing agent ID or call ID");
       return;
     }
@@ -241,13 +281,13 @@ const CallCard: React.FC<CallCardProps> = ({
       const { data: existingData } = await supabase
         .from('call_logs')
         .select('id')
-        .eq('call_id', callId)
+        .eq('call_id', call.call_id)
         .eq('agent_id', agentId)
         .single();
       
       let result;
       const updateData = {
-        call_id: callId,
+        call_id: call.call_id,
         agent_id: agentId,
         appointment_status: 'rejected',
         from_number: call.from_number || "",
@@ -288,6 +328,12 @@ const CallCard: React.FC<CallCardProps> = ({
       console.error('Error rejecting appointment:', error);
       toast.error('Failed to update appointment status');
     }
+  };
+
+  // Determine if we should show appointment actions
+  const shouldShowAppointmentActions = () => {
+    // Show actions if there's no appointment status yet
+    return !call.appointment_status || call.appointment_status === 'in-process';
   };
 
   return (
@@ -388,6 +434,27 @@ const CallCard: React.FC<CallCardProps> = ({
                   </span>
                 )}
               </div>
+              
+              {/* Action buttons for in-process appointments */}
+              {call.appointment_status === 'in-process' && (
+                <div className="flex gap-2 mt-2">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                    onClick={handleRejectAppointment}
+                  >
+                    <X className="mr-2 h-4 w-4" /> Reject
+                  </Button>
+                  <Button 
+                    size="sm"
+                    className="bg-green-600 hover:bg-green-700"
+                    onClick={handleAcceptAppointment}
+                  >
+                    <Check className="mr-2 h-4 w-4" /> Schedule
+                  </Button>
+                </div>
+              )}
             </div>
           )}
           
@@ -596,15 +663,53 @@ const CallCard: React.FC<CallCardProps> = ({
           
           {isExpanded && (
             <div className="mt-4 space-y-4 border-t pt-4">
-              {/* AI Appointment Extractor - only show if not already scheduled */}
-              {call.transcript && (!call.appointment_status || call.appointment_status === 'rejected') && (
+              {/* Show appointment extraction UI only when appropriate */}
+              {call.transcript && shouldShowAppointmentActions() && !call.processed && (
                 <div className="mb-4">
-                  <AppointmentExtractor 
-                    transcript={call.transcript}
-                    callId={call.call_id}
-                    onAccept={handleAcceptAppointment}
-                    onReject={handleRejectAppointment}
-                  />
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    <Button 
+                      onClick={handleExtractAppointment} 
+                      disabled={isExtracting}
+                      className="flex items-center gap-1"
+                    >
+                      <Sparkles className="h-4 w-4" /> 
+                      Extract Appointment Details
+                    </Button>
+                    {extractedAppointment && (extractedAppointment.appointmentDate || extractedAppointment.appointmentTime) && (
+                      <>
+                        <Button 
+                          variant="outline" 
+                          className="border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
+                          onClick={handleRejectAppointment}
+                        >
+                          <X className="mr-2 h-4 w-4" /> Reject
+                        </Button>
+                        <Button 
+                          className="bg-green-600 hover:bg-green-700"
+                          onClick={handleAcceptAppointment}
+                        >
+                          <Check className="mr-2 h-4 w-4" /> Schedule
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                  
+                  {extractedAppointment && (
+                    <div className="mb-4">
+                      {(extractedAppointment.appointmentDate || extractedAppointment.appointmentTime) ? (
+                        <AppointmentExtractor 
+                          transcript={call.transcript}
+                          callId={call.call_id}
+                          autoExtract={false}
+                          onExtracted={() => {}}
+                        />
+                      ) : (
+                        <div className="bg-gray-50 p-4 rounded-md text-gray-600">
+                          No appointment details found in the transcript.
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
               

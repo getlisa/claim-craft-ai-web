@@ -34,6 +34,7 @@ interface Call {
     in_voicemail?: boolean;
   };
   id?: number;
+  processed?: boolean; // Track if a call has been processed
   [key: string]: any; // Allow additional fields
 }
 
@@ -84,17 +85,21 @@ const Dashboard = () => {
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
-            id: dbCall.id
+            id: dbCall.id,
+            processed: true // Mark calls from DB as processed
           };
         }
-        return apiCall;
+        return {
+          ...apiCall,
+          processed: false // Mark new calls as not processed
+        };
       });
       
       setCalls(mergedCalls);
       setInitialDataLoaded(true);
       
-      // Process transcripts with OpenAI in the background
-      processCallTranscripts(mergedCalls);
+      // Process transcripts with OpenAI in the background - only for unprocessed calls
+      processCallTranscripts(mergedCalls.filter(call => !call.processed));
       
       if (mergedCalls.length === 0) {
         toast.info("No calls found for this agent");
@@ -111,11 +116,12 @@ const Dashboard = () => {
   const processCallTranscripts = async (callsToProcess: Call[]) => {
     if (!agentId) return;
     
-    // Find calls that have transcripts but no appointment data yet
+    // Find calls that have transcripts but no appointment data yet and haven't been processed
     const callsNeedingProcessing = callsToProcess.filter(call => 
       call.transcript && 
       !processedCalls.has(call.call_id) && 
-      (!call.appointment_date || !call.appointment_time)
+      (!call.appointment_date || !call.appointment_time) &&
+      !call.processed
     );
     
     if (callsNeedingProcessing.length === 0) return;
@@ -128,10 +134,15 @@ const Dashboard = () => {
         // Mark as processed regardless of result
         setProcessedCalls(prev => new Set(prev).add(call.call_id));
         
+        // Update calls with processed flag
+        setCalls(prevCalls => prevCalls.map(c => 
+          c.call_id === call.call_id ? { ...c, processed: true } : c
+        ));
+        
         // If we got updated data, update our state
         if (updatedCall) {
           setCalls(prevCalls => prevCalls.map(c => 
-            c.call_id === updatedCall.call_id ? updatedCall : c
+            c.call_id === updatedCall.call_id ? { ...updatedCall, processed: true } : c
           ));
           
           // Show toast notification only for high confidence results
@@ -159,7 +170,7 @@ const Dashboard = () => {
     if (!updatedCall || !updatedCall.call_id) return;
     
     setCalls(prevCalls => prevCalls.map(call => 
-      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall } : call
+      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall, processed: true } : call
     ));
     
     // Show a feedback toast

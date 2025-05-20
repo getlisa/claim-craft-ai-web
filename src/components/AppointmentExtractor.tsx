@@ -2,17 +2,15 @@
 import { useState } from "react";
 import { format, parse } from "date-fns";
 import { extractAppointmentDetails } from "@/lib/openai";
-import { Button } from "@/components/ui/button";
 import { 
   Card, 
   CardContent, 
   CardDescription, 
-  CardFooter, 
   CardHeader, 
   CardTitle 
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Check, Clock, Calendar, X, Sparkles } from "lucide-react";
+import { Clock, Calendar, Sparkles } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -20,15 +18,15 @@ import { Skeleton } from "@/components/ui/skeleton";
 interface AppointmentExtractorProps {
   transcript: string;
   callId: string;
-  onAccept: (date: string, time: string, callId: string) => void;
-  onReject: (callId: string) => void;
+  onExtracted?: (data: any) => void;
+  autoExtract?: boolean;
 }
 
 const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({ 
   transcript, 
   callId,
-  onAccept,
-  onReject
+  onExtracted,
+  autoExtract = false
 }) => {
   const [loading, setLoading] = useState(false);
   const [extractedDate, setExtractedDate] = useState<string | null>(null);
@@ -36,7 +34,12 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
   const [confidence, setConfidence] = useState<number>(0);
   const [suggestedResponse, setSuggestedResponse] = useState<string | null>(null);
 
-  const handleExtract = async () => {
+  // Auto-extract on component mount if enabled
+  if (autoExtract && !loading && !extractedDate && !extractedTime) {
+    handleExtract();
+  }
+
+  async function handleExtract() {
     if (!transcript) {
       toast.error("No transcript available to analyze");
       return;
@@ -52,6 +55,10 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
       setConfidence(result.confidence);
       setSuggestedResponse(result.suggestedResponse);
       
+      if (onExtracted) {
+        onExtracted(result);
+      }
+      
       if (!result.appointmentDate && !result.appointmentTime) {
         toast.info("No appointment details found in the transcript");
       }
@@ -61,7 +68,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }
 
   const getFormattedDate = () => {
     if (!extractedDate) return null;
@@ -91,43 +98,19 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
     return "text-red-600";
   };
 
-  const handleAccept = () => {
-    if (extractedDate && extractedTime) {
-      onAccept(extractedDate, extractedTime, callId);
-      toast.success("Appointment scheduled successfully");
-    } else {
-      toast.error("Cannot schedule: missing date or time");
-    }
-  };
-
-  const handleReject = () => {
-    onReject(callId);
-    toast.info("Appointment suggestion rejected");
-  };
-
   return (
     <Card className="w-full bg-white border-indigo-100 hover:border-indigo-200 transition-all">
       <CardHeader className="pb-2">
         <CardTitle className="text-md flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-purple-500" />
-          AI Appointment Suggestion
+          AI Appointment Analysis
         </CardTitle>
         <CardDescription>
-          Extract appointment details from transcript
+          Detected appointment details from transcript
         </CardDescription>
       </CardHeader>
       
       <CardContent>
-        {!extractedDate && !extractedTime && !loading && (
-          <Button 
-            onClick={handleExtract} 
-            className="w-full"
-            disabled={loading}
-          >
-            <Sparkles className="mr-2 h-4 w-4" /> Extract Appointment Details
-          </Button>
-        )}
-        
         {loading && (
           <div className="space-y-2">
             <Skeleton className="h-5 w-full" />
@@ -136,7 +119,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
           </div>
         )}
         
-        {(extractedDate || extractedTime) && !loading && (
+        {!loading && (extractedDate || extractedTime) && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -184,25 +167,6 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
           </div>
         )}
       </CardContent>
-      
-      {(extractedDate || extractedTime) && !loading && (
-        <CardFooter className="flex justify-between gap-2 pt-2">
-          <Button 
-            variant="outline" 
-            className="w-1/2 border-red-200 text-red-700 hover:bg-red-50 hover:text-red-800"
-            onClick={handleReject}
-          >
-            <X className="mr-2 h-4 w-4" /> Reject
-          </Button>
-          <Button 
-            className="w-1/2 bg-green-600 hover:bg-green-700"
-            onClick={handleAccept}
-            disabled={!extractedDate || !extractedTime}
-          >
-            <Check className="mr-2 h-4 w-4" /> Schedule
-          </Button>
-        </CardFooter>
-      )}
     </Card>
   );
 };

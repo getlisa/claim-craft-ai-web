@@ -1,6 +1,7 @@
 
 import { toast } from "sonner";
 import { supabase } from "./supabase";
+import { addDays, format } from "date-fns";
 
 // Define the response structure
 interface ExtractedAppointmentData {
@@ -28,12 +29,21 @@ export async function extractAppointmentDetails(transcript: string): Promise<Ext
   }
 
   try {
+    // Get today's date to provide context for relative dates
+    const today = new Date();
+    const currentDate = format(today, 'yyyy-MM-dd');
+    
     // Prepare the system prompt - adding the word "json" to make it compatible with response_format
     const systemPrompt = `
       You are an AI trained to extract appointment date and time information from conversation transcripts.
       Analyze the transcript and find any mention of scheduling an appointment.
       
-      Extract the following details:
+      Today's date is ${currentDate}.
+      
+      When you encounter relative dates like "tomorrow", "next Monday", "in two days", etc., 
+      calculate the actual date based on today's date (${currentDate}).
+      
+      Extract the following details in JSON format:
       1. Appointment date (in YYYY-MM-DD format, return null if not found)
       2. Appointment time (in HH:MM format using 24-hour time, return null if not found)
       3. Confidence level (0-100 percent, how confident you are in the extraction)
