@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Calendar, Check, X } from "lucide-react";
@@ -615,7 +614,7 @@ const CallCard: React.FC<CallCardProps> = ({
                     
                     <TabsContent value="summary" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
                       <div className="whitespace-pre-wrap">
-                        {getSummary(call)}
+                        {getSummary()}
                       </div>
                     </TabsContent>
                   </Tabs>
