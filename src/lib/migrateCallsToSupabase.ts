@@ -16,6 +16,8 @@ export interface CallData {
   appointment_time?: string;
   notes?: string;
   from_number?: string;
+  client_name?: string;
+  client_address?: string;
   call_analysis?: {
     user_sentiment?: string;
     call_successful?: boolean;
@@ -70,7 +72,9 @@ export const saveCallToSupabase = async (call: CallData): Promise<boolean> => {
       appointment_date: call.appointment_date,
       appointment_time: call.appointment_time,
       notes: call.notes,
-      from_number: call.from_number
+      from_number: call.from_number,
+      client_name: call.client_name,
+      client_address: call.client_address
     };
     
     if (existingCall) {
