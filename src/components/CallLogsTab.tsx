@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, Edit, Info, Play, Pause, Headphones, Search, Filter, X, Check, X as Xmark, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -436,6 +435,11 @@ const CallLogsTab = ({
   };
 
   const handleAcceptAppointment = async (date: string, time: string, callId: string) => {
+    if (!date || !time) {
+      toast.error("Missing appointment date or time");
+      return;
+    }
+    
     if (!agentId || !callId) {
       toast.error("Missing agent ID or call ID");
       return;
@@ -997,36 +1001,40 @@ const CallLogsTab = ({
                   
                   <div className="flex items-center gap-2">
                     <span className="text-gray-500">Appointment:</span>
-                    {selectedCall.appointment_date ? (
+                    {selectedCall.appointment_date && selectedCall.appointment_time ? (
                       <div className="flex items-center gap-2">
                         <span className="font-medium">
                           {selectedCall.appointment_date} {selectedCall.appointment_time}
                         </span>
                         
-                        <div className="flex items-center ml-1">
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 py-0 text-green-600 hover:text-green-700 hover:bg-green-50 mr-1"
-                            onClick={() => handleAcceptAppointment(
-                              selectedCall.appointment_date, 
-                              selectedCall.appointment_time, 
-                              selectedCall.call_id
-                            )}
-                          >
-                            <Check className="h-3 w-3 mr-1" />
-                            <span className="text-xs">Accept</span>
-                          </Button>
-                          <Button 
-                            size="sm"
-                            variant="outline"
-                            className="h-6 px-2 py-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                            onClick={() => handleRejectAppointment(selectedCall.call_id)}
-                          >
-                            <Xmark className="h-3 w-3 mr-1" />
-                            <span className="text-xs">Reject</span>
-                          </Button>
-                        </div>
+                        {/* Only show the buttons if appointment is not already scheduled or rejected */}
+                        {(!selectedCall.appointment_status || 
+                          selectedCall.appointment_status === 'in-process') && (
+                          <div className="flex items-center ml-1">
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 py-0 text-green-600 hover:text-green-700 hover:bg-green-50 mr-1"
+                              onClick={() => handleAcceptAppointment(
+                                selectedCall.appointment_date || "", 
+                                selectedCall.appointment_time || "", 
+                                selectedCall.call_id
+                              )}
+                            >
+                              <Check className="h-3 w-3 mr-1" />
+                              <span className="text-xs">Accept</span>
+                            </Button>
+                            <Button 
+                              size="sm"
+                              variant="outline"
+                              className="h-6 px-2 py-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                              onClick={() => handleRejectAppointment(selectedCall.call_id)}
+                            >
+                              <Xmark className="h-3 w-3 mr-1" />
+                              <span className="text-xs">Reject</span>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -1074,38 +1082,13 @@ const CallLogsTab = ({
                 <TabsContent value="audio" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
                   {selectedCall.recording_url ? (
                     <div className="flex flex-col items-center justify-center py-6">
-                      <div className="mb-4 flex items-center justify-center">
-                        <Button
-                          variant="outline"
-                          size="lg"
-                          className="h-16 w-16 rounded-full"
-                          onClick={() => {
-                            if (!audioElement) {
-                              const audio = new Audio(selectedCall.recording_url);
-                              setAudioElement(audio);
-                              audio.play();
-                              setPlayingAudio(true);
-                            } else {
-                              if (playingAudio) {
-                                audioElement.pause();
-                                setPlayingAudio(false);
-                              } else {
-                                audioElement.play();
-                                setPlayingAudio(true);
-                              }
-                            }
-                          }}
-                        >
-                          {playingAudio ? (
-                            <Pause className="h-8 w-8" />
-                          ) : (
-                            <Play className="h-8 w-8" />
-                          )}
-                        </Button>
-                      </div>
-                      <div className="text-center text-sm text-gray-500">
-                        {playingAudio ? "Playing audio..." : "Click to play audio recording"}
-                      </div>
+                      <audio 
+                        controls 
+                        src={selectedCall.recording_url}
+                        className="w-full"
+                      >
+                        Your browser does not support the audio element.
+                      </audio>
                     </div>
                   ) : (
                     <div className="text-center text-gray-500 py-10">

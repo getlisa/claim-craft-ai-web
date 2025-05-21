@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format } from "date-fns";
 import { ChevronDown, ChevronUp, Clock, Sparkles, User, Phone, Search, Play, Info, CheckCircle, XCircle, ThumbsUp, ThumbsDown, Calendar, Check, X } from "lucide-react";
@@ -167,6 +168,11 @@ const CallCard: React.FC<CallCardProps> = ({
     }
     
     return "No summary available for this call.";
+  };
+
+  // Check if both appointment date and time are available
+  const hasAppointmentDetails = () => {
+    return !!(extractedAppointment && (extractedAppointment.appointmentDate || extractedAppointment.appointmentTime));
   };
 
   // Extract appointment data
@@ -461,7 +467,7 @@ const CallCard: React.FC<CallCardProps> = ({
               </div>
               
               {/* Action buttons for in-process appointments */}
-              {call.appointment_status === 'in-process' && (
+              {call.appointment_status === 'in-process' && call.appointment_date && call.appointment_time && (
                 <div className="flex gap-2 mt-2">
                   <Button 
                     variant="outline" 
@@ -502,7 +508,7 @@ const CallCard: React.FC<CallCardProps> = ({
               )}
             </Button>
             
-            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <Dialog open={dialogOpen} onOpenChange={handleDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
                   variant="outline"
@@ -539,97 +545,54 @@ const CallCard: React.FC<CallCardProps> = ({
                 </div>
                 
                 <div className="flex-1 overflow-hidden">
-                  <Tabs defaultValue="summary" value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
-                    <TabsList className="grid w-full grid-cols-2 mb-4">
-                      <TabsTrigger value="summary">
-                        <Info className="w-4 h-4 mr-2" />
-                        Summary
-                      </TabsTrigger>
+                  <Tabs defaultValue="transcript" value={activeTab} onValueChange={setActiveTab} className="w-full mt-4">
+                    <TabsList className="grid w-full grid-cols-3 mb-4">
                       <TabsTrigger value="transcript">
                         <Sparkles className="w-4 h-4 mr-2" />
                         Transcript
                       </TabsTrigger>
+                      <TabsTrigger value="audio">
+                        <Play className="w-4 h-4 mr-2" />
+                        Audio
+                      </TabsTrigger>
+                      <TabsTrigger value="summary">
+                        <Info className="w-4 h-4 mr-2" />
+                        Summary
+                      </TabsTrigger>
                     </TabsList>
                     
-                    <TabsContent value="summary" className="overflow-auto max-h-[50vh] px-1">
-                      <div className="space-y-4">
-                        <div className="bg-gray-50 p-4 rounded-md">
-                          <h3 className="font-medium mb-2 text-gray-700">Call Summary</h3>
-                          <p className="text-gray-600">{getSummary()}</p>
+                    <TabsContent value="transcript" className="overflow-auto max-h-[50vh] px-1">
+                      {transcriptLines.length > 0 ? (
+                        <div className="space-y-2">
+                          {transcriptLines.map((line: any, idx: number) => (
+                            <div 
+                              key={line.id}
+                              className={cn(
+                                "p-2 rounded-md flex items-start gap-2 transition-colors",
+                                playingIndex === idx ? "bg-purple-100" : "hover:bg-gray-50"
+                              )}
+                            >
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-0.5 h-5 w-5 p-0 rounded-full"
+                                onClick={() => handlePlayLine(idx)}
+                              >
+                                <Play className="h-3 w-3" />
+                              </Button>
+                              <p className="text-sm text-gray-700">{line.text}</p>
+                            </div>
+                          ))}
                         </div>
-                        
-                        {/* Call Analysis Details */}
-                        {call.call_analysis && (
-                          <div className="bg-gray-50 p-4 rounded-md">
-                            <h3 className="font-medium mb-3 text-gray-700">Call Analysis</h3>
-                            <div className="space-y-3">
-                              {call.call_analysis.user_sentiment && (
-                                <div className="flex items-center gap-2">
-                                  {call.call_analysis.user_sentiment?.toLowerCase() === 'positive' ? 
-                                    <ThumbsUp className="w-4 h-4 text-green-500" /> : 
-                                    (call.call_analysis.user_sentiment?.toLowerCase() === 'negative' ? 
-                                      <ThumbsDown className="w-4 h-4 text-red-500" /> : 
-                                      <Info className="w-4 h-4 text-blue-500" />)
-                                  }
-                                  <span className="text-sm text-gray-600">User Sentiment:</span>
-                                  <Badge className={getSentimentColor(call.call_analysis.user_sentiment)}>
-                                    {call.call_analysis.user_sentiment}
-                                  </Badge>
-                                </div>
-                              )}
-                              
-                              {typeof call.call_analysis.call_successful === 'boolean' && (
-                                <div className="flex items-center gap-2">
-                                  {call.call_analysis.call_successful ? 
-                                    <CheckCircle className="w-4 h-4 text-green-500" /> : 
-                                    <XCircle className="w-4 h-4 text-red-500" />
-                                  }
-                                  <span className="text-sm text-gray-600">Call Outcome:</span>
-                                  <span className="text-sm font-medium">
-                                    {call.call_analysis.call_successful ? "Successful" : "Unsuccessful"}
-                                  </span>
-                                </div>
-                              )}
-                              
-                              {typeof call.call_analysis.in_voicemail === 'boolean' && (
-                                <div className="flex items-center gap-2">
-                                  <Info className="w-4 h-4 text-gray-400" />
-                                  <span className="text-sm text-gray-600">Voicemail:</span>
-                                  <span className="text-sm font-medium">
-                                    {call.call_analysis.in_voicemail ? "Yes" : "No"}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                        
-                        <div>
-                          <h3 className="font-medium mb-2 text-gray-700">Call Details</h3>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-y-2 gap-x-4 text-sm">
-                            <div>
-                              <span className="text-gray-500">Agent ID:</span>
-                              <span className="ml-2">{call.agent_id || "N/A"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Call Type:</span>
-                              <span className="ml-2">{call.call_type || "voice"}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">Start Time:</span>
-                              <span className="ml-2">{formatDate(call.start_timestamp)}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-500">End Time:</span>
-                              <span className="ml-2">{formatDate(call.end_timestamp)}</span>
-                            </div>
-                          </div>
+                      ) : (
+                        <div className="text-center py-8 text-gray-500">
+                          No transcript available for this call.
                         </div>
-                      </div>
+                      )}
                     </TabsContent>
                     
-                    <TabsContent value="transcript" className="space-y-4">
-                      {call.recording_url && (
+                    <TabsContent value="audio" className="space-y-4">
+                      {call.recording_url ? (
                         <div className="bg-gray-50 p-3 rounded-md">
                           <h3 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
                             <Play className="w-4 h-4 text-purple-500" />
@@ -643,41 +606,16 @@ const CallCard: React.FC<CallCardProps> = ({
                             Your browser does not support the audio element.
                           </audio>
                         </div>
+                      ) : (
+                        <div className="text-center text-gray-500 py-10">
+                          No audio recording available for this call
+                        </div>
                       )}
-                      
-                      <div className="overflow-auto max-h-[40vh]">
-                        <h3 className="font-medium mb-2 text-gray-700 flex items-center gap-2">
-                          <Sparkles className="w-4 h-4 text-purple-500" />
-                          Transcript
-                        </h3>
-                        
-                        {transcriptLines.length > 0 ? (
-                          <div className="space-y-2">
-                            {transcriptLines.map((line: any, idx: number) => (
-                              <div 
-                                key={line.id}
-                                className={cn(
-                                  "p-2 rounded-md flex items-start gap-2 transition-colors",
-                                  playingIndex === idx ? "bg-purple-100" : "hover:bg-gray-50"
-                                )}
-                              >
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="mt-0.5 h-5 w-5 p-0 rounded-full"
-                                  onClick={() => handlePlayLine(idx)}
-                                >
-                                  <Play className="h-3 w-3" />
-                                </Button>
-                                <p className="text-sm text-gray-700">{line.text}</p>
-                              </div>
-                            ))}
-                          </div>
-                        ) : (
-                          <div className="text-center py-8 text-gray-500">
-                            No transcript available for this call.
-                          </div>
-                        )}
+                    </TabsContent>
+                    
+                    <TabsContent value="summary" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
+                      <div className="whitespace-pre-wrap">
+                        {getSummary(call)}
                       </div>
                     </TabsContent>
                   </Tabs>
@@ -700,6 +638,7 @@ const CallCard: React.FC<CallCardProps> = ({
                       <Sparkles className="h-4 w-4" /> 
                       Extract Appointment Details
                     </Button>
+                    {/* Only show accept/reject buttons when we have appointment details */}
                     {extractedAppointment && (extractedAppointment.appointmentDate || extractedAppointment.appointmentTime) && (
                       <>
                         <Button 
@@ -731,7 +670,7 @@ const CallCard: React.FC<CallCardProps> = ({
                         />
                       ) : (
                         <div className="bg-gray-50 p-4 rounded-md text-gray-600">
-                          No appointment details found in the transcript.
+                          No appointment details found in the transcript. Please check the transcript for any mention of appointment date or time.
                         </div>
                       )}
                     </div>
