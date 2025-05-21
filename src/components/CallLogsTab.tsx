@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, Edit, Info, Play, Pause, Headphones, Search, Filter, X, Check, X as Xmark, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -1002,32 +1003,30 @@ const CallLogsTab = ({
                           {selectedCall.appointment_date} {selectedCall.appointment_time}
                         </span>
                         
-                        {selectedCall.appointment_status === 'in-process' && (
-                          <div className="flex items-center ml-1">
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 py-0 text-green-600 hover:text-green-700 hover:bg-green-50 mr-1"
-                              onClick={() => handleAcceptAppointment(
-                                selectedCall.appointment_date, 
-                                selectedCall.appointment_time, 
-                                selectedCall.call_id
-                              )}
-                            >
-                              <Check className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Accept</span>
-                            </Button>
-                            <Button 
-                              size="sm"
-                              variant="outline"
-                              className="h-6 px-2 py-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                              onClick={() => handleRejectAppointment(selectedCall.call_id)}
-                            >
-                              <Xmark className="h-3 w-3 mr-1" />
-                              <span className="text-xs">Reject</span>
-                            </Button>
-                          </div>
-                        )}
+                        <div className="flex items-center ml-1">
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 py-0 text-green-600 hover:text-green-700 hover:bg-green-50 mr-1"
+                            onClick={() => handleAcceptAppointment(
+                              selectedCall.appointment_date, 
+                              selectedCall.appointment_time, 
+                              selectedCall.call_id
+                            )}
+                          >
+                            <Check className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Accept</span>
+                          </Button>
+                          <Button 
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 py-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            onClick={() => handleRejectAppointment(selectedCall.call_id)}
+                          >
+                            <Xmark className="h-3 w-3 mr-1" />
+                            <span className="text-xs">Reject</span>
+                          </Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
@@ -1050,15 +1049,77 @@ const CallLogsTab = ({
                       </div>
                     )}
                   </div>
-                  
-                  {selectedCall.suggestedResponse && (
-                    <div className="col-span-2 mt-1 p-2 bg-purple-50 border border-purple-100 rounded-md">
-                      <span className="text-purple-700 text-xs font-medium">Suggested response:</span>
-                      <p className="text-sm mt-1">{selectedCall.suggestedResponse}</p>
-                    </div>
-                  )}
                 </div>
               </div>
+              
+              <Tabs defaultValue="transcript" className="flex-1 overflow-hidden flex flex-col">
+                <TabsList className="mb-2">
+                  <TabsTrigger value="transcript">Transcript</TabsTrigger>
+                  <TabsTrigger value="audio">Audio</TabsTrigger>
+                  <TabsTrigger value="summary">Summary</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="transcript" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
+                  {selectedCall.transcript ? (
+                    <div className="whitespace-pre-wrap font-mono text-sm">
+                      {selectedCall.transcript}
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-10">
+                      No transcript available for this call
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="audio" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
+                  {selectedCall.recording_url ? (
+                    <div className="flex flex-col items-center justify-center py-6">
+                      <div className="mb-4 flex items-center justify-center">
+                        <Button
+                          variant="outline"
+                          size="lg"
+                          className="h-16 w-16 rounded-full"
+                          onClick={() => {
+                            if (!audioElement) {
+                              const audio = new Audio(selectedCall.recording_url);
+                              setAudioElement(audio);
+                              audio.play();
+                              setPlayingAudio(true);
+                            } else {
+                              if (playingAudio) {
+                                audioElement.pause();
+                                setPlayingAudio(false);
+                              } else {
+                                audioElement.play();
+                                setPlayingAudio(true);
+                              }
+                            }
+                          }}
+                        >
+                          {playingAudio ? (
+                            <Pause className="h-8 w-8" />
+                          ) : (
+                            <Play className="h-8 w-8" />
+                          )}
+                        </Button>
+                      </div>
+                      <div className="text-center text-sm text-gray-500">
+                        {playingAudio ? "Playing audio..." : "Click to play audio recording"}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="text-center text-gray-500 py-10">
+                      No audio recording available for this call
+                    </div>
+                  )}
+                </TabsContent>
+                
+                <TabsContent value="summary" className="flex-1 overflow-auto p-4 bg-gray-50 rounded-md">
+                  <div className="whitespace-pre-wrap">
+                    {getSummary(selectedCall)}
+                  </div>
+                </TabsContent>
+              </Tabs>
               
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>
