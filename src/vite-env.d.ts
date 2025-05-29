@@ -16,6 +16,8 @@ declare module "@/lib/migrateCallsToSupabase" {
     appointment_time?: string;
     notes?: string;
     from_number?: string;
+    client_name?: string;
+    client_address?: string;
     call_analysis?: {
       user_sentiment?: string;
       call_successful?: boolean;

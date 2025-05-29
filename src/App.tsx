@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,7 +25,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
   
   if (!isAuthenticated) {
-    return <Navigate to="/voice/login" />;
+    return <Navigate to="/login" />;
   }
   
   return <>{children}</>;
@@ -35,11 +34,10 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 const AppRoutes = () => {
   return (
     <Routes>
-      <Route path="/" element={<Navigate to="/voice/login" />} />
-      <Route path="/voice" element={<Navigate to="/voice/login" />} />
-      <Route path="/voice/login" element={<Login />} />
+      <Route path="/" element={<Navigate to="/login" />} />
+      <Route path="/login" element={<Login />} />
       <Route 
-        path="/voice/dashboard" 
+        path="/dashboard" 
         element={
           <ProtectedRoute>
             <Dashboard />
