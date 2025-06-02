@@ -82,9 +82,25 @@ const CallList: React.FC<CallListProps> = ({ calls, loading, updateCall }) => {
 
   // Filter calls based on all criteria
   const filteredCalls = calls.filter(call => {
-    // Text search
-    if (searchQuery && !JSON.stringify(call).toLowerCase().includes(searchQuery.toLowerCase())) {
-      return false;
+    // Text search - now includes email
+    if (searchQuery) {
+      const searchableFields = [
+        call.from_number || '',
+        call.call_id || '',
+        call.call_status || '',
+        call.appointment_status || '',
+        call.client_name || '',
+        call.client_address || '',
+        call.client_email || '',
+        call.notes || ''
+      ];
+      
+      const searchLower = searchQuery.toLowerCase();
+      const matchesSearch = searchableFields.some(field => 
+        field.toLowerCase().includes(searchLower)
+      );
+      
+      if (!matchesSearch) return false;
     }
 
     // Call status filter
@@ -193,7 +209,7 @@ const CallList: React.FC<CallListProps> = ({ calls, loading, updateCall }) => {
           <div className="relative flex-1">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
-              placeholder="Search calls..."
+              placeholder="Search calls, names, emails..."
               className="pl-10"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}

@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useCallback } from "react";
 import { Calendar, Edit, Info, Play, Pause, Headphones, Search, Filter, X, Check, X as Xmark, Loader2 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
@@ -72,6 +71,7 @@ const CallLogsTab = ({
     appointment_time: '',
     client_name: '',
     client_address: '',
+    client_email: '',
     notes: ''
   });
   const [playingAudio, setPlayingAudio] = useState<boolean>(false);
@@ -135,6 +135,7 @@ const CallLogsTab = ({
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             client_name: dbCall.client_name || apiCall.client_name,
             client_address: dbCall.client_address || apiCall.client_address,
+            client_email: dbCall.client_email || apiCall.client_email,
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
             id: dbCall.id
@@ -305,6 +306,7 @@ const CallLogsTab = ({
         call.appointment_status || '',
         call.client_name || '',
         call.client_address || '',
+        call.client_email || '',
         call.notes || ''
       ];
       
@@ -369,6 +371,7 @@ const CallLogsTab = ({
       appointment_time: call.appointment_time || '',
       client_name: call.client_name || '',
       client_address: call.client_address || '',
+      client_email: call.client_email || '',
       notes: call.notes || ''
     });
     setEditDialogOpen(true);
@@ -389,6 +392,7 @@ const CallLogsTab = ({
         appointment_time: editingCallData.appointment_time,
         client_name: editingCallData.client_name,
         client_address: editingCallData.client_address,
+        client_email: editingCallData.client_email,
         notes: editingCallData.notes
       };
       
@@ -412,6 +416,7 @@ const CallLogsTab = ({
                 appointment_time: editingCallData.appointment_time,
                 client_name: editingCallData.client_name,
                 client_address: editingCallData.client_address,
+                client_email: editingCallData.client_email,
                 notes: editingCallData.notes
               } 
             : call
@@ -458,6 +463,7 @@ const CallLogsTab = ({
         appointment_time: time,
         client_name: selectedCall?.client_name || "",
         client_address: selectedCall?.client_address || "",
+        client_email: selectedCall?.client_email || "",
         from_number: selectedCall?.from_number || "",
         updated_at: new Date().toISOString()
       };
@@ -597,6 +603,7 @@ const CallLogsTab = ({
           appointment_time: extractedData.appointmentTime,
           client_name: extractedData.clientName,
           client_address: extractedData.clientAddress,
+          client_email: extractedData.clientEmail || call.client_email || '',
           appointment_status: 'in-process',
           suggestedResponse: extractedData.suggestedResponse,
           confidence: extractedData.confidence
@@ -794,12 +801,6 @@ const CallLogsTab = ({
             </Button>
           </div>
         )}
-        
-        {activeFilters.length > 0 && (
-          <div className="text-sm text-gray-500 mt-2">
-            Showing {filteredCalls.length} of {calls.length} calls
-          </div>
-        )}
       </div>
       
       {error && (
@@ -814,6 +815,7 @@ const CallLogsTab = ({
             <TableRow>
               <TableHead>From Number</TableHead>
               <TableHead>Client Name</TableHead>
+              <TableHead>Email</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Appointment</TableHead>
@@ -827,6 +829,7 @@ const CallLogsTab = ({
                 <TableRow key={`loading-${index}`}>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[120px]" /></TableCell>
+                  <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
                   <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
@@ -836,7 +839,7 @@ const CallLogsTab = ({
               ))
             ) : filteredCalls.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="h-24 text-center">
+                <TableCell colSpan={8} className="h-24 text-center">
                   {calls.length === 0 ? (
                     <div className="flex flex-col items-center gap-2">
                       <p>No calls found</p>
@@ -866,6 +869,9 @@ const CallLogsTab = ({
                     </TableCell>
                     <TableCell>
                       {call.client_name || <span className="text-gray-400">Not available</span>}
+                    </TableCell>
+                    <TableCell className="max-w-[200px] truncate">
+                      {call.client_email || <span className="text-gray-400">Not available</span>}
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(call.call_status)}`}>
@@ -954,6 +960,13 @@ const CallLogsTab = ({
                     <span className="text-gray-500">Client:</span>
                     <span className="font-medium">
                       {selectedCall.client_name || "Unknown"}
+                    </span>
+                  </div>
+                  
+                  <div className="flex items-center gap-2">
+                    <span className="text-gray-500">Email:</span>
+                    <span className="font-medium max-w-xs truncate">
+                      {selectedCall.client_email || "Not available"}
                     </span>
                   </div>
                   
@@ -1170,6 +1183,17 @@ const CallLogsTab = ({
                 value={editingCallData.client_name || ""}
                 onChange={(e) => setEditingCallData({...editingCallData, client_name: e.target.value})}
                 placeholder="Enter client name"
+              />
+            </div>
+            
+            <div className="grid gap-2">
+              <Label htmlFor="client-email">Client Email</Label>
+              <Input
+                id="client-email"
+                type="email"
+                value={editingCallData.client_email || ""}
+                onChange={(e) => setEditingCallData({...editingCallData, client_email: e.target.value})}
+                placeholder="Enter client email"
               />
             </div>
             
