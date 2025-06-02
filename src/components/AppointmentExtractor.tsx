@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format, parse } from "date-fns";
 import { extractAppointmentDetails } from "@/lib/openai";
@@ -173,7 +174,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
                   <Calendar className="mr-1 h-4 w-4" /> Date
                 </div>
                 <div className="font-semibold">
-                  {getFormattedDate() || "Not specified"}
+                  {getFormattedDate() || "Not available"}
                 </div>
               </div>
               
@@ -182,7 +183,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
                   <Clock className="mr-1 h-4 w-4" /> Time
                 </div>
                 <div className="font-semibold">
-                  {getFormattedTime() || "Not specified"}
+                  {getFormattedTime() || "Not available"}
                 </div>
               </div>
             </div>
@@ -193,20 +194,16 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
                   <User className="mr-1 h-4 w-4" /> Client
                 </div>
                 <div className="font-semibold">
-                  {clientName || "Not specified"}
+                  {clientName || "Not available"}
                 </div>
               </div>
               
               <div className="space-y-1">
                 <div className="text-sm font-medium text-gray-500 flex items-center">
-                  <Mail className="mr-1 h-4 w-4" /> Email Status
-                  {clientEmail && <span className="ml-1 text-green-600">✓</span>}
+                  <Mail className="mr-1 h-4 w-4" /> Email
                 </div>
-                <div className={cn(
-                  "font-semibold text-sm",
-                  clientEmail ? "text-blue-600" : "text-gray-400"
-                )}>
-                  {clientEmail ? "Found" : "Not found"}
+                <div className="font-semibold">
+                  {clientEmail || "Not available"}
                 </div>
               </div>
             </div>
@@ -216,7 +213,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
                 <MapPin className="mr-1 h-4 w-4" /> Address
               </div>
               <div className="font-semibold text-sm">
-                {clientAddress || "Not specified"}
+                {clientAddress || "Not available"}
               </div>
             </div>
             
