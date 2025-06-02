@@ -8,7 +8,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { User, UserPlus, Mail, Lock, Key, AlertTriangle, Trash2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { User, UserPlus, Mail, Lock, Key, AlertTriangle, Trash2, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/contexts/AuthContext";
@@ -28,6 +29,7 @@ const UserManagement = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [agentId, setAgentId] = useState("");
+  const [selectedRole, setSelectedRole] = useState<'admin' | 'user'>('user');
   const [error, setError] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   
@@ -50,7 +52,7 @@ const UserManagement = () => {
 
   // Create user mutation
   const createUserMutation = useMutation({
-    mutationFn: async ({ email, password, agentId }: { email: string; password: string; agentId: string }) => {
+    mutationFn: async ({ email, password, agentId, role }: { email: string; password: string; agentId: string; role: 'admin' | 'user' }) => {
       // First create the user in Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.admin.createUser({
         email,
@@ -68,7 +70,7 @@ const UserManagement = () => {
             user_id: authData.user.id,
             email,
             agent_id: agentId,
-            role: 'user',
+            role,
             created_by: userEmail
           }
         ])
@@ -85,11 +87,31 @@ const UserManagement = () => {
       setEmail("");
       setPassword("");
       setAgentId("");
+      setSelectedRole('user');
       setError(null);
     },
     onError: (error: any) => {
       setError(error.message || "Failed to create user");
       toast.error(error.message || "Failed to create user");
+    }
+  });
+
+  // Update user role mutation
+  const updateRoleMutation = useMutation({
+    mutationFn: async ({ userId, newRole }: { userId: string; newRole: 'admin' | 'user' }) => {
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ role: newRole })
+        .eq('user_id', userId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['users'] });
+      toast.success("User role updated successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to update user role");
     }
   });
 
@@ -135,10 +157,14 @@ const UserManagement = () => {
     }
 
     try {
-      await createUserMutation.mutateAsync({ email, password, agentId });
+      await createUserMutation.mutateAsync({ email, password, agentId, role: selectedRole });
     } finally {
       setIsCreating(false);
     }
+  };
+
+  const handleRoleChange = async (userId: string, newRole: 'admin' | 'user') => {
+    updateRoleMutation.mutate({ userId, newRole });
   };
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
@@ -166,7 +192,7 @@ const UserManagement = () => {
             <DialogHeader>
               <DialogTitle>Create New User</DialogTitle>
               <DialogDescription>
-                Create a new user account with their own agent ID.
+                Create a new user account with their own agent ID and role.
               </DialogDescription>
             </DialogHeader>
             
@@ -222,6 +248,20 @@ const UserManagement = () => {
                   />
                 </div>
                 <p className="text-xs text-gray-500">Enter the Agent ID (starts with 'agent_')</p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="user-role">Role</Label>
+                <Select value={selectedRole} onValueChange={(value: 'admin' | 'user') => setSelectedRole(value)}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select role" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="user">User</SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-gray-500">Admins can manage users and access all features</p>
               </div>
               
               <div className="flex gap-2 pt-4">
@@ -291,9 +331,20 @@ const UserManagement = () => {
                     <TableCell className="font-medium">{user.email}</TableCell>
                     <TableCell className="font-mono text-sm">{user.agent_id}</TableCell>
                     <TableCell>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role}
-                      </Badge>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={user.role}
+                          onValueChange={(newRole: 'admin' | 'user') => handleRoleChange(user.id, newRole)}
+                        >
+                          <SelectTrigger className="w-24 h-8">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="user">User</SelectItem>
+                            <SelectItem value="admin">Admin</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </TableCell>
                     <TableCell>
                       {new Date(user.created_at).toLocaleDateString()}
@@ -302,7 +353,7 @@ const UserManagement = () => {
                       {user.created_by || 'System'}
                     </TableCell>
                     <TableCell>
-                      {user.role !== 'admin' && (
+                      <div className="flex items-center gap-1">
                         <Button
                           variant="ghost"
                           size="sm"
@@ -311,7 +362,7 @@ const UserManagement = () => {
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
-                      )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
