@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { format, parse } from "date-fns";
 import { extractAppointmentDetails } from "@/lib/openai";
@@ -49,11 +50,16 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
       return;
     }
 
+    console.log("🔍 Starting extraction for call:", callId);
+    console.log("📝 Transcript preview:", transcript.substring(0, 200) + "...");
+    
     setLoading(true);
     
     try {
       // Use call date as reference if provided
       const result = await extractAppointmentDetails(transcript, callDate);
+      
+      console.log("📊 Extraction complete for call:", callId, result);
       
       setExtractedDate(result.appointmentDate);
       setExtractedTime(result.appointmentTime);
@@ -62,6 +68,11 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
       setClientEmail(result.clientEmail); // New field
       setConfidence(result.confidence);
       setSuggestedResponse(result.suggestedResponse);
+      
+      if (result.clientEmail) {
+        console.log("✅ Email successfully extracted and set:", result.clientEmail);
+        toast.success(`Email extracted: ${result.clientEmail}`);
+      }
       
       if (onExtracted) {
         onExtracted(result);
@@ -112,6 +123,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
         <CardTitle className="text-md flex items-center gap-2">
           <Sparkles className="h-5 w-5 text-purple-500" />
           AI Appointment Analysis
+          {loading && <span className="text-sm text-gray-500">(Extracting email...)</span>}
         </CardTitle>
         <CardDescription>
           Detected appointment details and contact information from transcript
@@ -124,6 +136,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
             <Skeleton className="h-5 w-full" />
             <Skeleton className="h-5 w-3/4" />
             <Skeleton className="h-5 w-1/2" />
+            <div className="text-sm text-gray-500 mt-2">🔍 Scanning for email addresses...</div>
           </div>
         )}
         
@@ -162,8 +175,12 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
               <div className="space-y-1">
                 <div className="text-sm font-medium text-gray-500 flex items-center">
                   <Mail className="mr-1 h-4 w-4" /> Email
+                  {clientEmail && <span className="ml-1 text-green-600">✓</span>}
                 </div>
-                <div className="font-semibold text-sm">
+                <div className={cn(
+                  "font-semibold text-sm",
+                  clientEmail ? "text-blue-600" : "text-gray-400"
+                )}>
                   {clientEmail || "Not specified"}
                 </div>
               </div>
