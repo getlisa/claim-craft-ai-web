@@ -22,7 +22,7 @@ const Dashboard = () => {
   const { 
     data: calls = [], 
     isLoading: callsLoading, 
-    refetch: refreshCalls,
+    refetch,
     dataUpdatedAt
   } = useQuery({
     queryKey: ['calls', agentId],
@@ -49,6 +49,11 @@ const Dashboard = () => {
   });
 
   const dataLoaded = dataUpdatedAt > 0;
+
+  // Create a wrapper function that returns Promise<void>
+  const refreshCalls = async (): Promise<void> => {
+    await refetch();
+  };
 
   const updateCall = (updatedCall: any) => {
     // This would be used for optimistic updates if needed
@@ -101,7 +106,15 @@ const Dashboard = () => {
           />
         );
       case "calendar":
-        return <CalendarTab calls={calls} />;
+        return (
+          <CalendarTab
+            initialCalls={calls}
+            initialLoading={callsLoading}
+            dataLoaded={dataLoaded}
+            refreshCalls={refreshCalls}
+            updateCall={updateCall}
+          />
+        );
       case "user-management":
         return isAdmin ? <UserManagement /> : null;
       default:
