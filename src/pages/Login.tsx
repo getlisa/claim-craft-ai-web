@@ -16,7 +16,7 @@ const Login = () => {
   useEffect(() => {
     // If user is already authenticated and not in loading state, redirect to dashboard
     if (isAuthenticated && !isLoading) {
-      navigate("/voice/dashboard");
+      navigate("/dashboard");
     }
   }, [isAuthenticated, isLoading, navigate]);
 

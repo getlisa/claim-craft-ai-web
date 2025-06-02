@@ -50,17 +50,16 @@ const DashboardTab = ({
   refreshCalls,
   updateCall
 }: DashboardTabProps) => {
-  const [loading, setLoading] = useState(initialLoading);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [calls, setCalls] = useState<any[]>(initialCalls);
   
   // Update local state when props change
   useEffect(() => {
     setCalls(initialCalls);
-    setLoading(initialLoading);
-  }, [initialCalls, initialLoading]);
+  }, [initialCalls]);
   
   const handleRefresh = async () => {
-    setLoading(true);
+    setIsRefreshing(true);
     try {
       await refreshCalls();
       toast.success("Calls refreshed successfully");
@@ -68,7 +67,7 @@ const DashboardTab = ({
       console.error("Error refreshing calls:", error);
       toast.error("Failed to refresh calls");
     } finally {
-      setLoading(false);
+      setIsRefreshing(false);
     }
   };
   
@@ -91,8 +90,8 @@ const DashboardTab = ({
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold tracking-tight">Your Dashboard</h2>
         <div className="flex gap-2">
-          <Button onClick={handleRefresh} disabled={loading} variant="outline" className="flex gap-2 items-center">
-            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+          <Button onClick={handleRefresh} disabled={isRefreshing || initialLoading} variant="outline" className="flex gap-2 items-center">
+            {(isRefreshing || initialLoading) ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
             Refresh Calls
           </Button>
         </div>
@@ -141,7 +140,7 @@ const DashboardTab = ({
           <CardDescription>Your 5 most recent calls</CardDescription>
         </CardHeader>
         <CardContent>
-          <CallList calls={processedCalls} loading={loading} updateCall={updateCall} />
+          <CallList calls={processedCalls} loading={initialLoading} updateCall={updateCall} />
         </CardContent>
       </Card>
     </div>
