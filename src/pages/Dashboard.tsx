@@ -1,138 +1,247 @@
 
-import { useState, useEffect } from "react";
-import { useAuth } from "@/contexts/AuthContext";
-import { Navigate } from "react-router-dom";
-import { Loader2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-
-import AppLayout from "@/components/layout/AppLayout";
+import { useState, useEffect, useCallback } from "react";
 import DashboardTab from "@/components/DashboardTab";
 import CallLogsTab from "@/components/CallLogsTab";
 import AppointmentsTab from "@/components/AppointmentsTab";
 import CalendarTab from "@/components/CalendarTab";
-import UserManagement from "@/components/UserManagement";
+import AppLayout from "@/components/layout/AppLayout";
+import { useAuth } from "@/contexts/AuthContext";
+import { fetchCallsFromApi } from "@/lib/migrateCallsToSupabase";
+import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { supabase } from "@/lib/supabase";
+import { processCallTranscript } from "@/lib/openai";
+
+// Define the Call type to prevent any[] usage
+interface Call {
+  call_id: string;
+  agent_id?: string;
+  call_status?: string;
+  start_timestamp?: string;
+  end_timestamp?: string;
+  transcript?: string;
+  recording_url?: string;
+  call_type?: string;
+  from_number?: string;
+  appointment_status?: string;
+  appointment_date?: string;
+  appointment_time?: string;
+  client_name?: string;
+  client_address?: string;
+  client_email?: string; // New field for email
+  notes?: string;
+  call_analysis?: {
+    call_summary?: string;
+    user_sentiment?: string;
+    call_successful?: boolean;
+    in_voicemail?: boolean;
+  };
+  id?: number;
+  processed?: boolean; // Track if a call has been processed
+  [key: string]: any; // Allow additional fields
+}
 
 const Dashboard = () => {
-  const { isAuthenticated, isLoading, agentId, isAdmin } = useAuth();
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [calls, setCalls] = useState<Call[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [processedCalls, setProcessedCalls] = useState<Set<string>>(new Set());
+  const { agentId, isAuthenticated } = useAuth();
 
-  // Fetch calls data
-  const { 
-    data: calls = [], 
-    isLoading: callsLoading, 
-    refetch,
-    dataUpdatedAt
-  } = useQuery({
-    queryKey: ['calls', agentId],
-    queryFn: async () => {
-      if (!agentId) return [];
+  // Create a fetchCalls function that can be used for initial load and refreshes
+  const fetchCalls = useCallback(async () => {
+    if (!agentId) {
+      setLoading(false);
+      return;
+    }
+    
+    setLoading(true);
+    
+    try {
+      // Get calls from API
+      const apiCalls = await fetchCallsFromApi(agentId);
       
-      console.log("Fetching calls for agent:", agentId);
-      const { data, error } = await supabase
-        .from('calls')
+      // Get ALL calls from database
+      const { data: dbCalls, error: dbError } = await supabase
+        .from('call_logs')
         .select('*')
-        .eq('agent_id', agentId)
-        .order('start_timestamp', { ascending: false });
+        .eq('agent_id', agentId);
       
-      if (error) {
-        console.error("Error fetching calls:", error);
-        throw error;
+      if (dbError) throw dbError;
+      
+      // Create a map of database calls by call_id
+      const dbCallsMap = new Map();
+      if (dbCalls && dbCalls.length > 0) {
+        dbCalls.forEach(dbCall => {
+          dbCallsMap.set(dbCall.call_id, dbCall);
+        });
       }
       
-      console.log("Fetched calls:", data?.length);
-      return data || [];
-    },
-    enabled: !!agentId && isAuthenticated,
-    staleTime: 5 * 60 * 1000, // 5 minutes
-  });
+      // Merge API calls with database data
+      const mergedCalls = apiCalls.map(apiCall => {
+        const dbCall = dbCallsMap.get(apiCall.call_id);
+        if (dbCall) {
+          return {
+            ...apiCall,
+            appointment_status: dbCall.appointment_status || apiCall.appointment_status,
+            appointment_date: dbCall.appointment_date || apiCall.appointment_date,
+            appointment_time: dbCall.appointment_time || apiCall.appointment_time,
+            client_name: dbCall.client_name || apiCall.client_name,
+            client_address: dbCall.client_address || apiCall.client_address,
+            client_email: dbCall.client_email || apiCall.client_email, // New field
+            notes: dbCall.notes || apiCall.notes,
+            from_number: dbCall.from_number || apiCall.from_number || "",
+            id: dbCall.id,
+            processed: true // Mark calls from DB as processed
+          };
+        }
+        return {
+          ...apiCall,
+          processed: false // Mark new calls as not processed
+        };
+      });
+      
+      setCalls(mergedCalls);
+      setInitialDataLoaded(true);
+      
+      // Process transcripts with OpenAI in the background - only for unprocessed calls
+      // Use setTimeout to avoid blocking the UI thread
+      setTimeout(() => {
+        processCallTranscripts(mergedCalls.filter(call => !call.processed));
+      }, 1000);
+      
+      if (mergedCalls.length === 0) {
+        toast.info("No calls found for this agent");
+      }
+    } catch (error: any) {
+      console.error("Failed to load data:", error);
+      toast.error("Could not load call data. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [agentId]);
 
-  const dataLoaded = dataUpdatedAt > 0;
-
-  // Create a wrapper function that returns Promise<void>
-  const refreshCalls = async (): Promise<void> => {
-    await refetch();
-  };
-
-  const updateCall = (updatedCall: any) => {
-    // This would be used for optimistic updates if needed
-    console.log("Call updated:", updatedCall);
-  };
-
-  if (isLoading) {
-    return (
-      <div className="h-screen flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
-        <span className="ml-2 text-lg text-gray-600">Loading...</span>
-      </div>
+  // Process call transcripts to extract appointment details
+  const processCallTranscripts = async (callsToProcess: Call[]) => {
+    if (!agentId) return;
+    
+    // Find calls that have transcripts but no appointment data yet and haven't been processed
+    const callsNeedingProcessing = callsToProcess.filter(call => 
+      call.transcript && 
+      !processedCalls.has(call.call_id) && 
+      (!call.appointment_date || !call.appointment_time) &&
+      !call.processed
     );
-  }
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
-
-  const renderActiveTab = () => {
-    switch (activeTab) {
-      case "dashboard":
-        return (
-          <DashboardTab
-            initialCalls={calls}
-            initialLoading={callsLoading}
-            dataLoaded={dataLoaded}
-            refreshCalls={refreshCalls}
-            updateCall={updateCall}
-          />
-        );
-      case "call-logs":
-        return (
-          <CallLogsTab
-            initialCalls={calls}
-            initialLoading={callsLoading}
-            dataLoaded={dataLoaded}
-            refreshCalls={refreshCalls}
-            updateCall={updateCall}
-          />
-        );
-      case "appointments":
-        return (
-          <AppointmentsTab
-            initialCalls={calls}
-            initialLoading={callsLoading}
-            dataLoaded={dataLoaded}
-            refreshCalls={refreshCalls}
-            updateCall={updateCall}
-          />
-        );
-      case "calendar":
-        return (
-          <CalendarTab
-            initialCalls={calls}
-            initialLoading={callsLoading}
-            dataLoaded={dataLoaded}
-            refreshCalls={refreshCalls}
-            updateCall={updateCall}
-          />
-        );
-      case "user-management":
-        return isAdmin ? <UserManagement /> : null;
-      default:
-        return (
-          <DashboardTab
-            initialCalls={calls}
-            initialLoading={callsLoading}
-            dataLoaded={dataLoaded}
-            refreshCalls={refreshCalls}
-            updateCall={updateCall}
-          />
-        );
+    
+    if (callsNeedingProcessing.length === 0) return;
+    
+    // Process calls one by one
+    for (const call of callsNeedingProcessing) {
+      try {
+        const updatedCall = await processCallTranscript(call, agentId);
+        
+        // Mark as processed regardless of result
+        setProcessedCalls(prev => new Set(prev).add(call.call_id));
+        
+        // Update calls with processed flag
+        setCalls(prevCalls => prevCalls.map(c => 
+          c.call_id === call.call_id ? { ...c, processed: true } : c
+        ));
+        
+        // If we got updated data, update our state
+        if (updatedCall) {
+          setCalls(prevCalls => prevCalls.map(c => 
+            c.call_id === updatedCall.call_id ? { ...updatedCall, processed: true } : c
+          ));
+          
+          // Show toast notification only for high confidence results
+          if (updatedCall.confidence > 70) {
+            const details = [];
+            if (updatedCall.appointment_date) details.push(`${updatedCall.appointment_date} at ${updatedCall.appointment_time || 'N/A'}`);
+            if (updatedCall.client_name) details.push(`Client: ${updatedCall.client_name}`);
+            
+            toast.success(`Appointment detected for ${updatedCall.from_number || 'a call'}`, {
+              description: details.join(' • ')
+            });
+          }
+        }
+      } catch (err) {
+        console.error("Error processing transcript for call:", call.call_id, err);
+      }
     }
   };
 
+  // Load initial data when dashboard mounts and we have an agentId
+  useEffect(() => {
+    if (agentId && isAuthenticated) {
+      fetchCalls();
+    }
+  }, [agentId, isAuthenticated, fetchCalls]);
+
+  // Function to update a specific call in the calls array
+  const updateCall = useCallback((updatedCall: Call) => {
+    if (!updatedCall || !updatedCall.call_id) return;
+    
+    setCalls(prevCalls => prevCalls.map(call => 
+      call.call_id === updatedCall.call_id ? { ...call, ...updatedCall, processed: true } : call
+    ));
+    
+    // Show a feedback toast
+    toast.success("Call data updated successfully");
+  }, []);
+
+  if (loading && !initialDataLoaded) {
+    return (
+      <AppLayout activeTab={activeTab} setActiveTab={setActiveTab}>
+        <div className="flex flex-col items-center justify-center h-64">
+          <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
+          <p className="mt-4 text-gray-600">Loading your calls...</p>
+        </div>
+      </AppLayout>
+    );
+  }
+
   return (
     <AppLayout activeTab={activeTab} setActiveTab={setActiveTab}>
-      {renderActiveTab()}
+      <div className="bg-white rounded-lg shadow-md p-6">
+        {activeTab === "dashboard" && 
+          <DashboardTab 
+            initialCalls={calls} 
+            initialLoading={loading} 
+            dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
+            updateCall={updateCall}
+          />
+        }
+        {activeTab === "call-logs" && 
+          <CallLogsTab 
+            initialCalls={calls} 
+            initialLoading={loading} 
+            dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
+            updateCall={updateCall}
+          />
+        }
+        {activeTab === "appointments" && 
+          <AppointmentsTab 
+            initialCalls={calls} 
+            initialLoading={loading} 
+            dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
+            updateCall={updateCall}
+          />
+        }
+        {activeTab === "calendar" && 
+          <CalendarTab 
+            initialCalls={calls} 
+            initialLoading={loading} 
+            dataLoaded={initialDataLoaded}
+            refreshCalls={fetchCalls}
+            updateCall={updateCall}
+          />
+        }
+      </div>
     </AppLayout>
   );
 };

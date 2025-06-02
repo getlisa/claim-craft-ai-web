@@ -1,3 +1,4 @@
+
 import React, { createContext, useState, useEffect, useContext } from "react";
 import { supabase } from "@/lib/supabase";
 import { toast } from "sonner";
@@ -13,8 +14,6 @@ interface AuthContextType {
   }>;
   userEmail: string | null;
   isLoading: boolean;
-  userRole: 'admin' | 'user' | null;
-  isAdmin: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,8 +24,6 @@ const AuthContext = createContext<AuthContextType>({
   register: async () => ({ success: false }),
   userEmail: null,
   isLoading: true,
-  userRole: null,
-  isAdmin: false,
 });
 
 export const useAuth = () => useContext(AuthContext);
@@ -36,9 +33,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [agentId, setAgentId] = useState<string>("");
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [userRole, setUserRole] = useState<'admin' | 'user' | null>(null);
-
-  const isAdmin = userRole === 'admin';
 
   useEffect(() => {
     // Check current auth status when the app loads
@@ -51,29 +45,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setIsAuthenticated(true);
           setUserEmail(user.email);
           
-          // Get the agent ID and role from user metadata or profiles table
+          // Get the agent ID from user metadata or profiles table
           const { data: profile } = await supabase
             .from('user_profiles')
-            .select('agent_id, role')
+            .select('agent_id')
             .eq('user_id', user.id)
             .single();
             
           if (profile?.agent_id) {
             setAgentId(profile.agent_id);
-            setUserRole(profile.role || 'user');
           }
         } else {
           setIsAuthenticated(false);
           setUserEmail(null);
           setAgentId("");
-          setUserRole(null);
         }
       } catch (error) {
         console.error("Auth check error:", error);
         setIsAuthenticated(false);
         setUserEmail(null);
         setAgentId("");
-        setUserRole(null);
       } finally {
         setIsLoading(false);
       }
@@ -88,22 +79,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           setIsAuthenticated(true);
           setUserEmail(session.user.email);
           
-          // Get the agent ID and role from user metadata or profiles table
+          // Get the agent ID from user metadata or profiles table
           const { data: profile } = await supabase
             .from('user_profiles')
-            .select('agent_id, role')
+            .select('agent_id')
             .eq('user_id', session.user.id)
             .single();
             
           if (profile?.agent_id) {
             setAgentId(profile.agent_id);
-            setUserRole(profile.role || 'user');
           }
         } else {
           setIsAuthenticated(false);
           setUserEmail(null);
           setAgentId("");
-          setUserRole(null);
         }
         setIsLoading(false);
       }
@@ -143,15 +132,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       if (data.user) {
-        // Create a profile record with the agent ID and default role
+        // Create a profile record with the agent ID
         const { error: profileError } = await supabase
           .from('user_profiles')
           .insert([
             { 
               user_id: data.user.id,
               agent_id: newAgentId,
-              email: email,
-              role: 'admin' // First user is admin
+              email: email
             }
           ]);
           
@@ -180,7 +168,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setIsAuthenticated(true);
         setUserEmail(email);
         setAgentId(newAgentId);
-        setUserRole('admin');
         
         toast.success("Registration successful! You are now logged in.");
         return { success: true };
@@ -215,10 +202,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setIsAuthenticated(true);
         setUserEmail(email);
         
-        // Get the agent ID and role from the profiles table
+        // Get the agent ID from the profiles table
         const { data: profile, error: profileError } = await supabase
           .from('user_profiles')
-          .select('agent_id, role')
+          .select('agent_id')
           .eq('user_id', data.user.id)
           .single();
           
@@ -226,7 +213,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           console.error("Error fetching profile:", profileError);
         } else if (profile?.agent_id) {
           setAgentId(profile.agent_id);
-          setUserRole(profile.role || 'user');
         }
         
         toast.success("Login successful!");
@@ -252,7 +238,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(false);
       setUserEmail(null);
       setAgentId("");
-      setUserRole(null);
       
       // Then sign out from Supabase
       const { error } = await supabase.auth.signOut();
@@ -270,7 +255,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setIsAuthenticated(false);
       setUserEmail(null);
       setAgentId("");
-      setUserRole(null);
     } finally {
       setIsLoading(false);
     }
@@ -284,9 +268,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logout, 
       register,
       userEmail,
-      isLoading,
-      userRole,
-      isAdmin
+      isLoading
     }}>
       {children}
     </AuthContext.Provider>

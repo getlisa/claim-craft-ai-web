@@ -1,6 +1,6 @@
 
 import React from "react";
-import { Calendar, Table, Headphones, LogOut, CalendarClock, Users } from "lucide-react";
+import { Calendar, Table, Headphones, LogOut, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { useAuth } from "@/contexts/AuthContext";
@@ -13,7 +13,7 @@ interface AppLayoutProps {
 }
 
 const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
-  const { logout, userEmail, isAdmin } = useAuth();
+  const { logout, userEmail } = useAuth();
 
   const handleSignOut = async () => {
     try {
@@ -86,22 +86,6 @@ const AppLayout = ({ children, activeTab, setActiveTab }: AppLayoutProps) => {
               <CalendarClock className="mr-2 h-4 w-4" />
               Calendar
             </Button>
-            
-            {/* User Management - Only visible to admins */}
-            {isAdmin && (
-              <Button
-                variant={activeTab === "user-management" ? "default" : "ghost"}
-                className={`w-full justify-start ${
-                  activeTab === "user-management"
-                    ? "bg-purple-600 text-white hover:bg-purple-700 hover:text-white"
-                    : "hover:bg-purple-50"
-                }`}
-                onClick={() => setActiveTab("user-management")}
-              >
-                <Users className="mr-2 h-4 w-4" />
-                User Management
-              </Button>
-            )}
           </div>
           
           {/* Footer with Email and Sign Out */}
