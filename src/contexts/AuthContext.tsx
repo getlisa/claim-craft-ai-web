@@ -63,6 +63,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       } catch (error) {
         console.error("Auth check error:", error);
         setIsAuthenticated(false);
+        setUserEmail(null);
+        setAgentId("");
       } finally {
         setIsLoading(false);
       }
@@ -71,6 +73,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Set up auth state change listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log("Auth state change:", event, session?.user?.email);
+        
         if (session?.user) {
           setIsAuthenticated(true);
           setUserEmail(session.user.email);
@@ -85,13 +89,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           if (profile?.agent_id) {
             setAgentId(profile.agent_id);
           }
-          setIsLoading(false);
         } else {
           setIsAuthenticated(false);
           setUserEmail(null);
           setAgentId("");
-          setIsLoading(false);
         }
+        setIsLoading(false);
       }
     );
     
@@ -228,16 +231,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = async () => {
     try {
+      console.log("Starting logout process...");
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
-      if (error) throw error;
       
+      // Clear local state first
       setIsAuthenticated(false);
       setUserEmail(null);
       setAgentId("");
+      
+      // Then sign out from Supabase
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        throw error;
+      }
+      
+      console.log("Logout successful");
       toast.success("You have been logged out");
     } catch (error: any) {
+      console.error("Logout failed:", error);
       toast.error(error.message || "Logout failed");
+      // Reset auth state even if logout fails
+      setIsAuthenticated(false);
+      setUserEmail(null);
+      setAgentId("");
     } finally {
       setIsLoading(false);
     }
