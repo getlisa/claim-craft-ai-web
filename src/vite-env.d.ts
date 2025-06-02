@@ -18,6 +18,7 @@ declare module "@/lib/migrateCallsToSupabase" {
     from_number?: string;
     client_name?: string;
     client_address?: string;
+    client_email?: string; // New field for email
     call_analysis?: {
       user_sentiment?: string;
       call_successful?: boolean;

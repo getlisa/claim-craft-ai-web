@@ -3,18 +3,19 @@ import { toast } from "sonner";
 import { supabase } from "./supabase";
 import { addDays, format } from "date-fns";
 
-// Update response structure with new fields
+// Update response structure with new email field
 interface ExtractedAppointmentData {
   appointmentDate: string | null;
   appointmentTime: string | null;
   clientName: string | null;
   clientAddress: string | null;
+  clientEmail: string | null; // New field for email
   confidence: number;
   suggestedResponse: string | null;
 }
 
 /**
- * Extracts appointment date and time from a transcript using OpenAI API
+ * Extracts appointment date, time, client info, and email from a transcript using OpenAI API
  */
 export async function extractAppointmentDetails(transcript: string, referenceDate?: Date): Promise<ExtractedAppointmentData> {
   // Default values in case of error
@@ -23,6 +24,7 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
     appointmentTime: null,
     clientName: null,
     clientAddress: null,
+    clientEmail: null,
     confidence: 0,
     suggestedResponse: null
   };
@@ -37,10 +39,10 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
     const baseDate = referenceDate || new Date();
     const currentDate = format(baseDate, 'yyyy-MM-dd');
     
-    // Updated system prompt to extract name and address
+    // Updated system prompt to extract email addresses as well
     const systemPrompt = `
-      You are an AI trained to extract appointment information from conversation transcripts.
-      Analyze the transcript and find any mention of scheduling an appointment.
+      You are an AI trained to extract appointment information and contact details from conversation transcripts.
+      Analyze the transcript and find any mention of scheduling an appointment and contact information.
       
       Reference date for this call is ${currentDate}.
       
@@ -52,10 +54,17 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
       2. Appointment time (in HH:MM format using 24-hour time, return null if not found)
       3. Client name (full name if available, return null if not found)
       4. Client address (street address, city, state, etc., return null if not found or incomplete)
-      5. Confidence level (0-100 percent, how confident you are in the extraction)
-      6. A suggested confirmation response that the agent could use
+      5. Client email (email address if mentioned, return null if not found)
+      6. Confidence level (0-100 percent, how confident you are in the extraction)
+      7. A suggested confirmation response that the agent could use
       
-      If multiple dates or times are mentioned, choose the one most likely to be the final agreed appointment.
+      For email extraction, look for patterns like:
+      - "my email is..."
+      - "you can reach me at..."
+      - "send it to..."
+      - Any text that follows standard email format (name@domain.com)
+      
+      If multiple dates, times, or emails are mentioned, choose the one most likely to be the final agreed appointment or primary contact.
       
       Return the data in JSON format with the following structure:
       {
@@ -63,6 +72,7 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
         "appointmentTime": "HH:MM or null",
         "clientName": "string or null",
         "clientAddress": "string or null",
+        "clientEmail": "string or null",
         "confidence": number,
         "suggestedResponse": "string or null"
       }
@@ -102,7 +112,7 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
           },
           {
             role: "user",
-            content: `Extract appointment details from this transcript and respond with JSON: ${transcript}`
+            content: `Extract appointment details and contact information from this transcript and respond with JSON: ${transcript}`
           }
         ],
         response_format: { type: "json_object" }
@@ -122,6 +132,7 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
       appointmentTime: result.appointmentTime,
       clientName: result.clientName,
       clientAddress: result.clientAddress,
+      clientEmail: result.clientEmail, // New field
       confidence: result.confidence || 0,
       suggestedResponse: result.suggestedResponse
     };
@@ -146,9 +157,9 @@ export async function processCallTranscript(call: any, agentId: string) {
       
       const extractedData = await extractAppointmentDetails(call.transcript, callDate);
       
-      if (extractedData.appointmentDate || extractedData.appointmentTime) {
-        // We have appointment data - update in Supabase database directly
-        // Include the new client name and address fields
+      if (extractedData.appointmentDate || extractedData.appointmentTime || extractedData.clientEmail) {
+        // We have appointment or contact data - update in Supabase database directly
+        // Include the new client email field
         const { data, error } = await supabase
           .from('call_logs')
           .upsert({
@@ -156,8 +167,9 @@ export async function processCallTranscript(call: any, agentId: string) {
             agent_id: agentId,
             appointment_date: extractedData.appointmentDate,
             appointment_time: extractedData.appointmentTime,
-            client_name: extractedData.clientName, // New field
-            client_address: extractedData.clientAddress, // New field
+            client_name: extractedData.clientName,
+            client_address: extractedData.clientAddress,
+            client_email: extractedData.clientEmail, // New field
             appointment_status: 'in-process', // Default status for extracted appointments
             from_number: call.from_number || "",
             updated_at: new Date().toISOString()
@@ -175,6 +187,7 @@ export async function processCallTranscript(call: any, agentId: string) {
           appointment_time: extractedData.appointmentTime,
           client_name: extractedData.clientName,
           client_address: extractedData.clientAddress,
+          client_email: extractedData.clientEmail, // New field
           appointment_status: 'in-process',
           confidence: extractedData.confidence,
           suggestedResponse: extractedData.suggestedResponse

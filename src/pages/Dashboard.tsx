@@ -28,6 +28,7 @@ interface Call {
   appointment_time?: string;
   client_name?: string;
   client_address?: string;
+  client_email?: string; // New field for email
   notes?: string;
   call_analysis?: {
     call_summary?: string;
@@ -99,6 +100,7 @@ const Dashboard = () => {
             appointment_time: dbCall.appointment_time || apiCall.appointment_time,
             client_name: dbCall.client_name || apiCall.client_name,
             client_address: dbCall.client_address || apiCall.client_address,
+            client_email: dbCall.client_email || apiCall.client_email, // New field
             notes: dbCall.notes || apiCall.notes,
             from_number: dbCall.from_number || apiCall.from_number || "",
             id: dbCall.id,

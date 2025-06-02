@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { format, parse } from "date-fns";
 import { extractAppointmentDetails } from "@/lib/openai";
@@ -10,7 +9,7 @@ import {
   CardTitle 
 } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Clock, Calendar, Sparkles, User, MapPin } from "lucide-react";
+import { Clock, Calendar, Sparkles, User, MapPin, Mail } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -35,11 +34,12 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
   const [extractedTime, setExtractedTime] = useState<string | null>(null);
   const [clientName, setClientName] = useState<string | null>(null);
   const [clientAddress, setClientAddress] = useState<string | null>(null);
+  const [clientEmail, setClientEmail] = useState<string | null>(null); // New state for email
   const [confidence, setConfidence] = useState<number>(0);
   const [suggestedResponse, setSuggestedResponse] = useState<string | null>(null);
 
   // Auto-extract on component mount if enabled
-  if (autoExtract && !loading && !extractedDate && !extractedTime) {
+  if (autoExtract && !loading && !extractedDate && !extractedTime && !clientEmail) {
     handleExtract();
   }
 
@@ -59,6 +59,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
       setExtractedTime(result.appointmentTime);
       setClientName(result.clientName);
       setClientAddress(result.clientAddress);
+      setClientEmail(result.clientEmail); // New field
       setConfidence(result.confidence);
       setSuggestedResponse(result.suggestedResponse);
       
@@ -66,8 +67,8 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
         onExtracted(result);
       }
       
-      if (!result.appointmentDate && !result.appointmentTime) {
-        toast.info("No appointment details found in the transcript");
+      if (!result.appointmentDate && !result.appointmentTime && !result.clientEmail) {
+        toast.info("No appointment details or contact information found in the transcript");
       }
     } catch (error) {
       console.error("Error in appointment extraction:", error);
@@ -113,7 +114,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
           AI Appointment Analysis
         </CardTitle>
         <CardDescription>
-          Detected appointment details from transcript
+          Detected appointment details and contact information from transcript
         </CardDescription>
       </CardHeader>
       
@@ -126,7 +127,7 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
           </div>
         )}
         
-        {!loading && (extractedDate || extractedTime || clientName || clientAddress) && (
+        {!loading && (extractedDate || extractedTime || clientName || clientAddress || clientEmail) && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
@@ -160,11 +161,20 @@ const AppointmentExtractor: React.FC<AppointmentExtractorProps> = ({
               
               <div className="space-y-1">
                 <div className="text-sm font-medium text-gray-500 flex items-center">
-                  <MapPin className="mr-1 h-4 w-4" /> Address
+                  <Mail className="mr-1 h-4 w-4" /> Email
                 </div>
                 <div className="font-semibold text-sm">
-                  {clientAddress || "Not specified"}
+                  {clientEmail || "Not specified"}
                 </div>
+              </div>
+            </div>
+
+            <div className="space-y-1">
+              <div className="text-sm font-medium text-gray-500 flex items-center">
+                <MapPin className="mr-1 h-4 w-4" /> Address
+              </div>
+              <div className="font-semibold text-sm">
+                {clientAddress || "Not specified"}
               </div>
             </div>
             
