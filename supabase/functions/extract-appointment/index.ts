@@ -5,6 +5,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 serve(async (req) => {
@@ -39,8 +40,18 @@ serve(async (req) => {
     const openaiApiKey = Deno.env.get('OPENAI_API_KEY')
     
     if (!openaiApiKey) {
+      console.error('OpenAI API key not found in environment variables')
       return new Response(
-        JSON.stringify({ error: 'OpenAI API key not configured' }),
+        JSON.stringify({ 
+          error: 'OpenAI API key not configured',
+          appointmentDate: null,
+          appointmentTime: null,
+          clientName: null,
+          clientAddress: null,
+          clientEmail: null,
+          confidence: 0,
+          suggestedResponse: null
+        }),
         { 
           status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -51,6 +62,9 @@ serve(async (req) => {
     // Use provided reference date or fall back to today
     const baseDate = referenceDate ? new Date(referenceDate) : new Date()
     const currentDate = baseDate.toISOString().split('T')[0] // YYYY-MM-DD format
+    
+    console.log('Processing transcript:', transcript.substring(0, 100) + '...')
+    console.log('Reference date:', currentDate)
     
     const systemPrompt = `
       You are an AI trained to extract appointment information and contact details from conversation transcripts.
@@ -121,11 +135,14 @@ serve(async (req) => {
 
     if (!response.ok) {
       const error = await response.json()
+      console.error('OpenAI API error:', error)
       throw new Error(error.error?.message || "Failed to extract appointment details")
     }
 
     const data = await response.json()
     const result = JSON.parse(data.choices[0].message.content)
+    
+    console.log('Extraction result:', result)
     
     return new Response(
       JSON.stringify(result),
