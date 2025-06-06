@@ -1,4 +1,3 @@
-
 import { toast } from "sonner";
 import { supabase } from "./supabase";
 import { addDays, format } from "date-fns";
@@ -87,23 +86,13 @@ export async function extractAppointmentDetails(transcript: string, referenceDat
       }
     `;
 
-    // Check for API key in localStorage first (temporary storage for testing)
-    let apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || '';
+    // Get API key from environment variable
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
-    if (!apiKey) {
-      console.error("OpenAI API key is missing");
-      toast.error("OpenAI API key is not configured");
-      
-      // Prompt user for API key
-      apiKey = prompt("Please enter your OpenAI API key to extract appointment details:") || '';
-      
-      if (apiKey) {
-        // Store temporarily in localStorage
-        localStorage.setItem('openai_api_key', apiKey);
-        toast.success("API key saved temporarily");
-      } else {
-        return defaultResponse;
-      }
+    if (!apiKey || apiKey === 'your_openai_api_key_here') {
+      console.error("OpenAI API key is not configured in environment variables");
+      toast.error("OpenAI API key is not configured. Please set VITE_OPENAI_API_KEY in your environment variables.");
+      return defaultResponse;
     }
 
     console.log("Making OpenAI API call for extraction...");
